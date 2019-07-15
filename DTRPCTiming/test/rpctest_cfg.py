@@ -55,7 +55,7 @@ process.rpcntupler = cms.EDAnalyzer("DTRPCTiming",
 )
 
 process.TFileService = cms.Service("TFileService",
-     fileName = cms.string('rpcNtuple_sample.root')
+     fileName = cms.string('output.root')
  )
 
 process.p = cms.Path(process.rpcntupler)

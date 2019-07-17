@@ -63,28 +63,14 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *EventInfo;
 
     //DT Digi (using segments, instead)
-    TH1D *h_MB1NDigis;
-    TH1D *h_MB2NDigis;
-    TH1D *h_MB3NDigis;
-    TH1D *h_MB4NDigis;
-    TH1D *h_WNeg2NDigis; //Wheel -2
-    TH1D *h_WNeg1NDigis;
-    TH1D *h_W0NDigis;
-    TH1D *h_WPos1NDigis;
-    TH1D *h_WPos2NDigis;
-    TH2D *h_SWNDigis; //Station - wheel 2
+    TH1D *h_MBNDigis[4]; //Station
+    TH1D *h_WNDigis[5]; //Wheel
+    TH2D *h_SWNDigis; //Station - wheel 
 
     //RPC
     TH1D *h_NRecHits;
-    TH1D *h_RB1NRecHits;
-    TH1D *h_RB2NRecHits;
-    TH1D *h_RB3NRecHits;
-    TH1D *h_RB4NRecHits;
-    TH1D *h_WNeg2NRecHits; //Wheel -2
-    TH1D *h_WNeg1NRecHits;
-    TH1D *h_W0NRecHits;
-    TH1D *h_WPos1NRecHits;
-    TH1D *h_WPos2NRecHits;
+    TH1D *h_RBNRecHits[6]; //Station, separating in/out in RB1,2
+    TH1D *h_WNRecHits[5]; //Wheel
     TH2D *h_SWNRecHits;
 
     //No Bx=0 histos / simHit multiplicity now
@@ -92,27 +78,20 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     unsigned int b_EVENT, b_RUN, b_LUMI;
 
     //DT
-    double b_MB1NDigis, b_MB2NDigis, b_MB3NDigis, b_MB4NDigis;
-    double b_WNeg2NDigis, b_WNeg1NDigis, b_W0NDigis, b_WPos1NDigis, b_WPos2NDigis;
+    double b_DTNDigis[4][5]; //0~3: station 1~4, 0~4: wheel -2~2
     //Not looking at BX now
-    //unsigned int bx_MB1NDigis, bx_MB2NDigis, bx_MB3NDigis, bx_MB4NDigis;
-    double b_MB1NDigis_Total, b_MB2NDigis_Total, b_MB3NDigis_Total, b_MB4NDigis_Total;
-    double b_WNeg2NDigis_Total, b_WNeg1NDigis_Total, b_W0NDigis_Total, b_WPos1NDigis_Total, b_WPos2NDigis_Total;
-    double pure_MB1NDigis_Total, pure_MB2NDigis_Total, pure_MB3NDigis_Total, pure_MB4NDigis_Total;
-    double pure_WNeg2NDigis_Total, pure_WNeg1NDigis_Total, pure_W0NDigis_Total, pure_WPos1NDigis_Total, pure_WPos2NDigis_Total;
+    //unsigned int bx_DTNDigis
+    double b_DTNDigis_Total[4][5];
+    double pure_DTNDigis_Total[4][5];
 
     //RPC
-    unsigned int b_RB1NRecHits, b_RB2NRecHits, b_RB3NRecHits, b_RB4NRecHits;
-    unsigned int b_WNeg2NRecHits, b_WNeg1NRecHits, b_W0NRecHits, b_WPos1NRecHits, b_WPos2NRecHits;
+    unsigned int b_RPCNRecHits[6][5]; //0~5: station 1~2(in/out)~3~4, 0~4: wheel -2~2
     //Not looking at BX now
-    //unsigned int bx_WNeg2NRecHits, bx_WNeg1NRecHits, bx_W0NRecHits, bx_WPos1NRecHits, bx_WPos2NRecHits;
-    //unsigned int bx_RB1NRecHits, bx_RB2NRecHits, bx_RB3NRecHits, bx_RB4NRecHits;
+    //unsigned int bx_RPCNRecHits
 
 /*  No simhit and matching for now
-    unsigned int b_ME31NSimHits;
-    unsigned int b_ME41NSimHits;
-    unsigned int b_RE31NSimHits;
-    unsigned int b_RE41NSimHits;
+    unsigned int b_DTNSimHits;
+    unsigned int b_RPCNSimHits;
 
     int b_ptype;
     TH1D *h_ptype;
@@ -191,9 +170,9 @@ DTRPCTiming::getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt
 GlobalPoint
 DTRPCTiming::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
 
-  RPCDetId rpcid = RPCDetId(rpcId);
+  RPCDetId rpc_id = RPCDetId(rpcId);
   const LocalPoint& rpc_lp = rpcIt.localPosition();
-  const GlobalPoint& rpc_gp = rpcGeo->idToDet(rpcid)->surface().toGlobal(rpc_lp);
+  const GlobalPoint& rpc_gp = rpcGeo->idToDet(rpc_id)->surface().toGlobal(rpc_lp);
  
   return rpc_gp;
 
@@ -212,18 +191,18 @@ DTRPCTiming::matchingRPC(CSCDetId rawId, const CSCCorrelatedLCTDigi& lct, float 
   float min_DxDy[2] = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
   
   for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
-    RPCDetId rpcid = (RPCDetId)(*rpcIt).rpcId();
+    RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
 
     GlobalPoint gp_rpc(0.0,0.0,0.0);
-    gp_rpc = getRPCGlobalPosition(rpcid, *rpcIt);
+    gp_rpc = getRPCGlobalPosition(rpc_id, *rpcIt);
 
-    if (rpcid.region() == 0) continue; //skip the barrels
+    if (rpc_id.region() == 0) continue; //skip the barrels
 
     float Dx = abs(gp_rpc.x()-gp_cscint.x());
     float Dy = abs(gp_rpc.y()-gp_cscint.y());
     float distance = sqrt(Dx*Dx + Dy*Dy);
 
-    if (rawId.station() == 3 && rawId.ring() == 1 && rpcid.station() == 3 && rpcid.ring() == 1){
+    if (rawId.station() == 3 && rawId.ring() == 1 && rpc_id.station() == 3 && rpc_id.ring() == 1){
       if (Dx < dx_cutoff && Dy < dy_cutoff && distance < min_distance){
         min_DxDy[0]=Dx;
         min_DxDy[1]=Dy;
@@ -258,43 +237,18 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   EventInfo->GetXaxis()->SetBinLabel(2,"Selected Number of Events");
 
   //DT
-  h_MB1NDigis = fs->make<TH1D>("h_MB1NDigis", "Number of digi per chamber (MB1)", 10, 0, 10);
-  h_MB1NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_MB1NDigis->GetYaxis()->SetTitle("Number of chamber");
+  for(int i=0; i<4; i++){
+    h_MBNDigis[i] = fs->make<TH1D>(Form("h_MB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
+    h_MBNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
+    h_MBNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+  }
+  for(int i=0; i<5; i++){
+    h_WNDigis[i] = fs->make<TH1D>(Form("h_W%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
+    h_WNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
+    h_WNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+  }
 
-  h_MB2NDigis = fs->make<TH1D>("h_MB2NDigis", "Number of digi per chamber (MB2)", 10, 0, 10);
-  h_MB2NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_MB2NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_MB3NDigis = fs->make<TH1D>("h_MB3NDigis", "Number of digi per chamber (MB3)", 10, 0, 10);
-  h_MB3NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_MB3NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_MB4NDigis = fs->make<TH1D>("h_MB4NDigis", "Number of digi per chamber (MB4)", 10, 0, 10);
-  h_MB4NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_MB4NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WNeg2NDigis = fs->make<TH1D>("h_WNeg2NDigis", "Number of digi per chamber (W-2)", 10, 0, 10);
-  h_WNeg2NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_WNeg2NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WNeg1NDigis = fs->make<TH1D>("h_WNeg1NDigis", "Number of digi per chamber (W-1)", 10, 0, 10);
-  h_WNeg1NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_WNeg1NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_W0NDigis = fs->make<TH1D>("h_W0NDigis", "Number of digi per chamber (W0)", 10, 0, 10);
-  h_W0NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_W0NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WPos1NDigis = fs->make<TH1D>("h_WPos1NDigis", "Number of digi per chamber (W+1)", 10, 0, 10);
-  h_WPos1NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_WPos1NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WPos2NDigis = fs->make<TH1D>("h_WPos2NDigis", "Number of digi per chamber (W+2)", 10, 0, 10);
-  h_WPos2NDigis->GetXaxis()->SetTitle("Number of digi per chamber");
-  h_WPos2NDigis->GetYaxis()->SetTitle("Number of chamber");
-
-  h_SWNDigis = fs->make<TH2D>("h_SWNDigis", "Number of digi per chamber", 4, 0, 4, 5, 0, 5);
+  h_SWNDigis = fs->make<TH2D>("h_SWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
   h_SWNDigis->GetXaxis()->SetTitle("Section");
   h_SWNDigis->GetYaxis()->SetTitle("Wheel");
 
@@ -303,44 +257,28 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
   h_NRecHits->GetYaxis()->SetTitle("Number of chamber");
 
-  h_RB1NRecHits = fs->make<TH1D>("h_RB1NRecHits", "Number of rechit per chamber (RB1)", 10, 0, 10);
-  h_RB1NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_RB1NRecHits->GetYaxis()->SetTitle("Number of chamber");
+  for(int i=0; i<6; i++){
+    const char* inout = "";
+    int st = 0;
+    if(i < 4){
+      if(i==0 or i==2) inout = "in";
+      else             inout = "out";
+      if(i<2) st = 1;
+      else    st = 2;
+    }
+    else st = i-1;
 
-  h_RB2NRecHits = fs->make<TH1D>("h_RB2NRecHits", "Number of rechit per chamber (RB2)", 10, 0, 10);
-  h_RB2NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_RB2NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_RB3NRecHits = fs->make<TH1D>("h_RB3NRecHits", "Number of rechit per chamber (RB3)", 10, 0, 10);
-  h_RB3NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_RB3NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_RB4NRecHits = fs->make<TH1D>("h_RB4NRecHits", "Number of rechit per chamber (RB4)", 10, 0, 10);
-  h_RB4NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_RB4NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WNeg2NRecHits = fs->make<TH1D>("h_WNeg2NRecHits", "Number of rechit per chamber (W-2)", 10, 0, 10);
-  h_WNeg2NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_WNeg2NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WNeg1NRecHits = fs->make<TH1D>("h_WNeg1NRecHits", "Number of rechit per chamber (W-1)", 10, 0, 10);
-  h_WNeg1NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_WNeg1NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_W0NRecHits = fs->make<TH1D>("h_W0NRecHits", "Number of rechit per chamber (W0)", 10, 0, 10);
-  h_W0NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_W0NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WPos1NRecHits = fs->make<TH1D>("h_WPos1NRecHits", "Number of rechit per chamber (W+1)", 10, 0, 10);
-  h_WPos1NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_WPos1NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_WPos2NRecHits = fs->make<TH1D>("h_WPos2NRecHits", "Number of rechit per chamber (W+2)", 10, 0, 10);
-  h_WPos2NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_WPos2NRecHits->GetYaxis()->SetTitle("Number of chamber");
-
-  h_SWNRecHits = fs->make<TH2D>("h_SWNRecHits", "Number of rechit per chamber", 4, 0, 4, 5, 0, 5);
-  h_SWNRecHits->GetXaxis()->SetTitle("Section");
+    h_RBNRecHits[i] = fs->make<TH1D>(Form("h_RB%i%sNRecHits",st,inout), Form("Number of rechit per chamber (RB%i%s)",st,inout), 10, 0, 10);
+    h_RBNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
+    h_RBNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
+  }
+  for(int i=0; i<5; i++){
+    h_WNRecHits[i] = fs->make<TH1D>(Form("h_W%iNRecHits",i-2), Form("Number of rechit per chamber (W%i)",i-2), 10, 0, 10);
+    h_WNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
+    h_WNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
+  }
+  h_SWNRecHits = fs->make<TH2D>("h_SWNRecHits", "Number of rechit per chamber", 6, 0.5, 6.5, 5, -2.5, 2.5);
+  h_SWNRecHits->GetXaxis()->SetTitle("Station");
   h_SWNRecHits->GetYaxis()->SetTitle("Wheel");
 
 /*
@@ -434,7 +372,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     return;
   }
 
-  cout << "\nNew event" << endl;
+  //cout << "\nNew event" << endl;
   b_EVENT = b_RUN = b_LUMI = 0;
 
   b_EVENT  = iEvent.id().event();
@@ -442,11 +380,12 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   b_LUMI   = iEvent.id().luminosityBlock();
 
   EventNum++;
-  cout << "Event " << EventNum << endl;
+  //cout << "Event " << EventNum << endl;
 
   nRPC = nDT = 0;
-  b_WNeg2NRecHits = b_WNeg1NRecHits = b_W0NRecHits = b_WPos1NRecHits = b_WPos2NRecHits = 0;
-  b_RB1NRecHits = b_RB2NRecHits = b_RB3NRecHits = b_RB4NRecHits = 0;
+  for(int i=0; i<6; i++){
+    for(int j=0; j<5; j++) b_RPCNRecHits[i][j]=0;
+  } 
 
   //b_ME31NSimHits = b_ME41NSimHits = b_RE31NSimHits = b_RE41NSimHits = 0;
 
@@ -458,23 +397,19 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     ///              For Endcap: the three groups of chambers at same z (distance from interaction point), i.e. the disk
     /// Layer id: each station can have two layers of chambers: layer 1 is the inner chamber and layer 2 is the outer chamber (when present)
     /// Only in Barrel: RB1 and RB2.
-    RPCDetId rpcid = (RPCDetId)(*rpcIt).rpcId();
-    if (rpcid.region() != 0) continue; //skip the endcap
+    RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
+    if (rpc_id.region() != 0) continue; //skip the endcap
     nRPC++;
+    int idxRPCRing = rpc_id.ring() + 2; //0~4
+    int idxRPCStation = -1;
+    if(rpc_id.station() <= 2) idxRPCStation = (rpc_id.station()-1)*(rpc_id.station()) + (rpc_id.layer()-1); //0~3
+    else idxRPCStation = rpc_id.station() + 1; 
 
-    if(rpcid.station() == 1) b_RB1NRecHits++;
-    if(rpcid.station() == 2) b_RB2NRecHits++;
-    if(rpcid.station() == 3) b_RB3NRecHits++;
-    if(rpcid.station() == 4) b_RB4NRecHits++;
-
-    if(rpcid.ring() == -2) b_WNeg2NDigis++; 
-    if(rpcid.ring() == -1) b_WNeg1NDigis++; 
-    if(rpcid.ring() == 0) b_W0NDigis++; 
-    if(rpcid.ring() == 1) b_WPos1NDigis++; 
-    if(rpcid.ring() == 2) b_WPos2NDigis++; 
-    //if((*rpcIt).BunchX() == 0 && rpcid.station() == 3 && rpcid.ring() == 1) bx_RE31NRecHits++;
-    //if((*rpcIt).BunchX() == 0 && rpcid.station() == 4 && rpcid.ring() == 1) bx_RE41NRecHits++;
-
+    cout << idxRPCStation << "/" << idxRPCRing << endl;
+    h_SWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
+    b_RPCNRecHits[idxRPCStation][idxRPCRing]++;
+    //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
+    //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 4 && rpc_id.ring() == 1) bx_RE41NRecHits++;
   }
   /*
   //to check cscsimhit Info
@@ -502,9 +437,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   for(dtChamberId = all4DSegments->id_begin(); dtChamberId != all4DSegments->id_end(); ++dtChamberId) {
 
     nDT++;
-
-    b_MB1NDigis = b_MB2NDigis = b_MB3NDigis = b_MB4NDigis = 0;
-    b_WNeg2NDigis = b_WNeg1NDigis = b_W0NDigis = b_WPos1NDigis = b_WPos2NDigis = 0;
+    for(int i=0; i<4; i++){
+      for(int j=0; j<5; j++) b_DTNDigis[i][j]=0;
+    }
     //bx_ME31NDigis = bx_ME41NDigis =0;
     //b_cscBX = b_rpcBX = 0;
 
@@ -534,50 +469,21 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     for(DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment){
 
       DTRecSegment4D tmpseg = *dtSegment;
+      if(!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
+      if(dtSegment->dimension() != 4) continue; //Check needed
       const DTChamberId dt_id = dtSegment->chamberId();
-
+      int idxDTStation = dt_id.station() - 1;
+      int idxDTWheel = dt_id.wheel() + 2;
       //b_cscBX = lct->getBX();
 
       gp_dt = GlobalPoint(0.0,0.0,0.0);
-      //gp_dt = getDTGlobalPosition(dt_id, *dtSegment);
       gp_dt = getDTGlobalPosition(dt_id, tmpseg);
       if (abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
 
-      if(dt_id.wheel() == -2){
-        pure_WNeg2NDigis_Total = pure_WNeg2NDigis_Total+1;
-        if     (dt_id.station() == 1) b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-        else if(dt_id.station() == 2) b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-        else if(dt_id.station() == 3) b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-        else if(dt_id.station() == 4) b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-      }
-      else if(dt_id.wheel() == -1){
-        pure_WNeg1NDigis_Total = pure_WNeg1NDigis_Total+1;
-        if     (dt_id.station() == 1) b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-        else if(dt_id.station() == 2) b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-        else if(dt_id.station() == 3) b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-        else if(dt_id.station() == 4) b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-      }
-      else if(dt_id.wheel() == 0){
-        pure_W0NDigis_Total = pure_W0NDigis_Total+1;
-        if     (dt_id.station() == 1) b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-        else if(dt_id.station() == 2) b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-        else if(dt_id.station() == 3) b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-        else if(dt_id.station() == 4) b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-      }
-      else if(dt_id.wheel() == 1){
-        pure_WPos1NDigis_Total = pure_WPos1NDigis_Total+1;
-        if     (dt_id.station() == 1) b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-        else if(dt_id.station() == 2) b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-        else if(dt_id.station() == 3) b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-        else if(dt_id.station() == 4) b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-      }
-      else if(dt_id.wheel() == 2){
-        pure_WPos2NDigis_Total = pure_WPos2NDigis_Total+1;
-        if     (dt_id.station() == 1) b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-        else if(dt_id.station() == 2) b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-        else if(dt_id.station() == 3) b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-        else if(dt_id.station() == 4) b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-      }
+      float Zo = gp_dt.z();
+      //cout << Zo << " / ";
+
+      pure_DTNDigis_Total[idxDTStation][idxDTWheel]++;
       /*
       const auto cscCham = getCSCGeometry().chamber(csc_id);
       float fractional_strip = lct->getFractionalStrip();
@@ -649,106 +555,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       */
 
       //No sim match, should be same as pure_*, no bx for now
-      if(dt_id.wheel() == -2){
-        b_WNeg2NDigis_Total = b_WNeg2NDigis_Total+1;
-        b_WNeg2NDigis = b_WNeg2NDigis+1;
-        if     (dt_id.station() == 1){
-          b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-          b_MB1NDigis = b_MB1NDigis+1;
-        }
-        else if(dt_id.station() == 2){
-          b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-          b_MB2NDigis = b_MB2NDigis+1;
-        }
-        else if(dt_id.station() == 3){
-          b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-          b_MB3NDigis = b_MB3NDigis+1;
-        }
-        else if(dt_id.station() == 4){
-          b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-          b_MB4NDigis = b_MB4NDigis+1;
-        }
-      }
-      else if(dt_id.wheel() == -1){
-        b_WNeg1NDigis_Total = b_WNeg1NDigis_Total+1;
-        b_WNeg1NDigis = b_WNeg1NDigis+1;
-        if     (dt_id.station() == 1){
-          b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-          b_MB1NDigis = b_MB1NDigis+1;
-        }
-        else if(dt_id.station() == 2){
-          b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-          b_MB2NDigis = b_MB2NDigis+1;
-        }
-        else if(dt_id.station() == 3){
-          b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-          b_MB3NDigis = b_MB3NDigis+1;
-        }
-        else if(dt_id.station() == 4){
-          b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-          b_MB4NDigis = b_MB4NDigis+1;
-        }
-      }
-      else if(dt_id.wheel() == 0){
-        b_W0NDigis_Total = b_W0NDigis_Total+1;
-        b_W0NDigis = b_W0NDigis+1;
-        if     (dt_id.station() == 1){
-          b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-          b_MB1NDigis = b_MB1NDigis+1;
-        }
-        else if(dt_id.station() == 2){
-          b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-          b_MB2NDigis = b_MB2NDigis+1;
-        }
-        else if(dt_id.station() == 3){
-          b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-          b_MB3NDigis = b_MB3NDigis+1;
-        }
-        else if(dt_id.station() == 4){
-          b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-          b_MB4NDigis = b_MB4NDigis+1;
-        }
-      }
-      else if(dt_id.wheel() == 1){
-        b_WPos1NDigis_Total = b_WPos1NDigis_Total+1;
-        b_WPos1NDigis = b_WPos1NDigis+1;
-        if     (dt_id.station() == 1){
-          b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-          b_MB1NDigis = b_MB1NDigis+1;
-        }
-        else if(dt_id.station() == 2){
-          b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-          b_MB2NDigis = b_MB2NDigis+1;
-        }
-        else if(dt_id.station() == 3){
-          b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-          b_MB3NDigis = b_MB3NDigis+1;
-        }
-        else if(dt_id.station() == 4){
-          b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-          b_MB4NDigis = b_MB4NDigis+1;
-        }
-      }
-      else if(dt_id.wheel() == 2){
-        b_WPos2NDigis_Total = b_WPos2NDigis_Total+1;
-        b_WPos2NDigis = b_WPos2NDigis+1;
-        if     (dt_id.station() == 1){
-          b_MB1NDigis_Total = b_MB1NDigis_Total+1;
-          b_MB1NDigis = b_MB1NDigis+1;
-        }
-        else if(dt_id.station() == 2){
-          b_MB2NDigis_Total = b_MB2NDigis_Total+1;
-          b_MB2NDigis = b_MB2NDigis+1;
-        }
-        else if(dt_id.station() == 3){
-          b_MB3NDigis_Total = b_MB3NDigis_Total+1;
-          b_MB3NDigis = b_MB3NDigis+1;
-        }
-        else if(dt_id.station() == 4){
-          b_MB4NDigis_Total = b_MB4NDigis_Total+1;
-          b_MB4NDigis = b_MB4NDigis+1;
-        }
-      }
+      h_SWNDigis->Fill(dt_id.station()+1, dt_id.wheel(), 1);
+      b_DTNDigis_Total[idxDTStation][idxDTWheel]++;
+      b_DTNDigis[idxDTStation][idxDTWheel]++;
       /*
       for (int i=0; i<25; i++){
         for (int j=0; j<25; j++){
@@ -759,11 +568,11 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
 
-        RPCDetId rpcid = (RPCDetId)(*rpcIt).rpcId();
-        if (rpcid.region() == 0) continue; //skip the barrels
+        RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
+        if (rpc_id.region() == 0) continue; //skip the barrels
 
         GlobalPoint gp_rpc(0.0,0.0,0.0);
-        gp_rpc = getRPCGlobalPosition(rpcid, *rpcIt);
+        gp_rpc = getRPCGlobalPosition(rpc_id, *rpcIt);
 
         if (gp_rpc.z() * gp_cscint.z() < 0 ) continue;
 
@@ -772,7 +581,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         double dy = dz*yslope;
 
         GlobalPoint gp_transcsc(gp_cscint.x()+dx, gp_cscint.y()+dy, gp_rpc.z());
-        LocalPoint lp_extrapol = rpcGeo->idToDet(rpcid)->surface().toLocal(gp_transcsc);
+        LocalPoint lp_extrapol = rpcGeo->idToDet(rpc_id)->surface().toLocal(gp_transcsc);
 
         //local distance
         LocalPoint lp_rpc(0.0,0.0,0.0);
@@ -784,14 +593,14 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 //        float Dx = abs(gp_rpc.x()-gp_cscint.x());
 //        float Dy = abs(gp_rpc.y()-gp_cscint.y());
 
-        if (csc_id.station() == 3 && csc_id.ring() == 1 && rpcid.station() == 3 && rpcid.ring() == 1){
+        if (csc_id.station() == 3 && csc_id.ring() == 1 && rpc_id.station() == 3 && rpc_id.ring() == 1){
           for (int i = 0; i < 25; i++){
             for (int j = 0; j < 25; j++){
               if (Dx < i+1 && Dy < j+1) isMatchME31[i][j] = true;
             }
           }
         }
-        if (csc_id.station() == 4 && csc_id.ring() == 1 && rpcid.station() == 4 && rpcid.ring() == 1){
+        if (csc_id.station() == 4 && csc_id.ring() == 1 && rpc_id.station() == 4 && rpc_id.ring() == 1){
           for (int i = 0; i < 25; i++){
             for (int j = 0; j < 25; j++){
               if (Dx < i+1 && Dy < j+1) isMatchME41[i][j] = true;
@@ -812,15 +621,10 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       */
     }//CSCLCT loop
 
-    if (b_MB1NDigis != 0) h_MB1NDigis->Fill(b_MB1NDigis);
-    if (b_MB2NDigis != 0) h_MB2NDigis->Fill(b_MB2NDigis);
-    if (b_MB3NDigis != 0) h_MB3NDigis->Fill(b_MB3NDigis);
-    if (b_MB4NDigis != 0) h_MB4NDigis->Fill(b_MB4NDigis);
-    if (b_WNeg2NDigis != 0) h_WNeg2NDigis->Fill(b_WNeg2NDigis);
-    if (b_WNeg1NDigis != 0) h_WNeg1NDigis->Fill(b_WNeg1NDigis);
-    if (b_W0NDigis != 0) h_W0NDigis-> Fill(b_W0NDigis);
-    if (b_WPos1NDigis != 0) h_WPos1NDigis->Fill(b_WPos1NDigis);
-    if (b_WPos2NDigis != 0) h_WPos2NDigis->Fill(b_WPos2NDigis);
+    for(int i=0; i<4; i++)
+      h_MBNDigis[i]->Fill(b_DTNDigis[i][0]+b_DTNDigis[i][1]+b_DTNDigis[i][2]+b_DTNDigis[i][3]+b_DTNDigis[i][4]);
+    for(int j=0; j<5; j++)
+      h_WNDigis[j]->Fill(b_DTNDigis[0][j]+b_DTNDigis[1][j]+b_DTNDigis[2][j]+b_DTNDigis[3][j]);
     /*
     if (b_ME31NSimHits != 0) h_cscME31NSimHits->Fill(b_ME31NSimHits);
     if (b_ME41NSimHits != 0) h_cscME41NSimHits->Fill(b_ME41NSimHits);
@@ -834,15 +638,10 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }//CSCChamber loop
 
   h_NRecHits->Fill(nRPC);
-  h_RB1NRecHits->Fill(b_RB1NRecHits);
-  h_RB2NRecHits->Fill(b_RB2NRecHits);
-  h_RB3NRecHits->Fill(b_RB3NRecHits);
-  h_RB4NRecHits->Fill(b_RB4NRecHits);
-  h_WNeg2NRecHits->Fill(b_WNeg2NRecHits);
-  h_WNeg1NRecHits->Fill(b_WNeg1NRecHits);
-  h_W0NRecHits->Fill(b_W0NRecHits);
-  h_WPos1NRecHits->Fill(b_WPos1NRecHits);
-  h_WPos2NRecHits->Fill(b_WPos2NRecHits);
+  for(int i=0; i<6; i++)
+    h_RBNRecHits[i]->Fill(b_RPCNRecHits[i][0]+b_RPCNRecHits[i][1]+b_RPCNRecHits[i][2]+b_RPCNRecHits[i][3]+b_RPCNRecHits[i][4]);
+  for(int j=0; j<5; j++)
+    h_WNRecHits[j]->Fill(b_RPCNRecHits[0][j]+b_RPCNRecHits[1][j]+b_RPCNRecHits[2][j]+b_RPCNRecHits[3][j]+b_RPCNRecHits[4][j]+b_RPCNRecHits[5][j]);
 
   tree->Fill();
   EventInfo->Fill(1.5);
@@ -858,7 +657,7 @@ DTRPCTiming::beginJob()
   tree->Branch("EVENT", &b_EVENT, "EVENT/i");
   tree->Branch("RUN"  , &b_RUN  , "RUN/i");
   tree->Branch("LUMI" , &b_LUMI , "LUMI/i");
-
+/*
   tree->Branch("MB1NDigis", &b_MB1NDigis, "MB1NDigis/i");
   tree->Branch("MB2NDigis", &b_MB2NDigis, "MB2NDigis/i");
   tree->Branch("MB3NDigis", &b_MB3NDigis, "MB3NDigis/i");
@@ -878,7 +677,7 @@ DTRPCTiming::beginJob()
   tree->Branch("W0NRecHits",    &b_W0NRecHits,    "W0NRecHits/i");
   tree->Branch("WPos1NRecHits", &b_WPos1NRecHits, "WPos1NRecHits/i");
   tree->Branch("WPos2NRecHits", &b_WPos2NRecHits, "WPos2NRecHits/i");
-/*
+
   tree->Branch("ME31NSimHits" , &b_ME31NSimHits , "ME31NSimHits/i");
   tree->Branch("ME41NSimHits" , &b_ME41NSimHits , "ME41NSimHits/i");
 
@@ -890,8 +689,9 @@ DTRPCTiming::beginJob()
 
   tree->Branch("ptype" , &b_ptype , "ptype/i");
 */
-  b_MB1NDigis_Total = b_MB2NDigis_Total = b_MB3NDigis_Total = b_MB4NDigis_Total = 0;
-  b_WNeg2NDigis_Total = b_WNeg1NDigis_Total = b_W0NDigis_Total = b_WPos1NDigis_Total = b_WPos2NDigis_Total = 0;
+    for(int i=0; i<4; i++){
+      for(int j=0; j<5; j++) b_DTNDigis_Total[i][j]=0;
+    }
   //pure_ME31NDigis_Total = pure_ME41NDigis_Total = 0;
 /*
   for (int i=0; i<25; i++){

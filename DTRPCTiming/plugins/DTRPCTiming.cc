@@ -249,8 +249,17 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   }
 
   h_SWNDigis = fs->make<TH2D>("h_SWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
-  h_SWNDigis->GetXaxis()->SetTitle("Section");
+  h_SWNDigis->GetXaxis()->SetTitle("Station");
   h_SWNDigis->GetYaxis()->SetTitle("Wheel");
+  h_SWNDigis->GetXaxis()->SetBinLabel(1,"MB1");
+  h_SWNDigis->GetXaxis()->SetBinLabel(2,"MB2");
+  h_SWNDigis->GetXaxis()->SetBinLabel(3,"MB3");
+  h_SWNDigis->GetXaxis()->SetBinLabel(4,"MB4");
+  h_SWNDigis->GetYaxis()->SetBinLabel(1,"W-2");
+  h_SWNDigis->GetYaxis()->SetBinLabel(2,"W-1");
+  h_SWNDigis->GetYaxis()->SetBinLabel(3,"W0");
+  h_SWNDigis->GetYaxis()->SetBinLabel(4,"W+1");
+  h_SWNDigis->GetYaxis()->SetBinLabel(5,"W+2");
 
   //RPC
   h_NRecHits = fs->make<TH1D>("h_NRecHits", "", 10, 0, 10);
@@ -280,6 +289,17 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_SWNRecHits = fs->make<TH2D>("h_SWNRecHits", "Number of rechit per chamber", 6, 0.5, 6.5, 5, -2.5, 2.5);
   h_SWNRecHits->GetXaxis()->SetTitle("Station");
   h_SWNRecHits->GetYaxis()->SetTitle("Wheel");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(1,"RB1in");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(2,"RB1out");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(3,"RB2in");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(4,"RB2out");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(5,"RB3");
+  h_SWNRecHits->GetXaxis()->SetBinLabel(6,"RB4");
+  h_SWNRecHits->GetYaxis()->SetBinLabel(1,"W-2");
+  h_SWNRecHits->GetYaxis()->SetBinLabel(2,"W-1");
+  h_SWNRecHits->GetYaxis()->SetBinLabel(3,"W0");
+  h_SWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
+  h_SWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
 
 /*
   h_xNMatchedME31 = fs->make<TH1D>("h_xNMatchedME31", "Matching Efficiency in ME3/1", 25, 0, 25);
@@ -405,7 +425,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if(rpc_id.station() <= 2) idxRPCStation = (rpc_id.station()-1)*(rpc_id.station()) + (rpc_id.layer()-1); //0~3
     else idxRPCStation = rpc_id.station() + 1; 
 
-    cout << idxRPCStation << "/" << idxRPCRing << endl;
     h_SWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
     b_RPCNRecHits[idxRPCStation][idxRPCRing]++;
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
@@ -470,9 +489,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       DTRecSegment4D tmpseg = *dtSegment;
       if(!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
-      if(dtSegment->dimension() != 4) continue; //Check needed
+      if(dtSegment->dimension() != 4) continue; //Check needed //MB4 doesn't have theta superlayer
       const DTChamberId dt_id = dtSegment->chamberId();
-      int idxDTStation = dt_id.station() - 1;
+      int idxDTStation = dt_id.station()-1;
       int idxDTWheel = dt_id.wheel() + 2;
       //b_cscBX = lct->getBX();
 
@@ -555,7 +574,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       */
 
       //No sim match, should be same as pure_*, no bx for now
-      h_SWNDigis->Fill(dt_id.station()+1, dt_id.wheel(), 1);
+      h_SWNDigis->Fill(dt_id.station(), dt_id.wheel(), 1);
       b_DTNDigis_Total[idxDTStation][idxDTWheel]++;
       b_DTNDigis[idxDTStation][idxDTWheel]++;
       /*

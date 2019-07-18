@@ -474,7 +474,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   
           float sDx = abs(dt_lp.x() - lp_dtsim.x());
           float sDy = abs(dt_lp.y() - lp_dtsim.y());
-          cout << sDx << "/" << sDy << endl;
           for (int k=0; k<100; k++) {
             if (sDx < k/100.) isValidMBx[idxDTStation][idxDTWheel][k] = true;
             if (sDy < k/100.) isValidMBy[idxDTStation][idxDTWheel][k] = true;
@@ -491,7 +490,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
-      //if (!dt_simmatched && abs(cptype) != 13) continue;
+      if (!dt_simmatched && abs(cptype) != 13) continue;
       /*
       double xslope = gp_cscint.x()/gp_cscint.z();
       double yslope = gp_cscint.y()/gp_cscint.z();
@@ -718,8 +717,8 @@ DTRPCTiming::endJob()
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
       }
-      h_simValidMBx[i]->Fill(tmp1/tmp3*100);
-      h_simValidMBy[i]->Fill(tmp2/tmp3*100);
+      h_simValidMBx[i]->SetBinContent(k+1,tmp1/tmp3*100);
+      h_simValidMBy[i]->SetBinContent(k+1,tmp2/tmp3*100);
     }
     for(int j=0; j<5; j++){
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
@@ -728,8 +727,8 @@ DTRPCTiming::endJob()
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
       }
-      h_simValidWx[j]->Fill(tmp1/tmp3*100);
-      h_simValidWy[j]->Fill(tmp2/tmp3*100);
+      h_simValidWx[j]->SetBinContent(k+1,tmp1/tmp3*100);
+      h_simValidWy[j]->SetBinContent(k+1,tmp2/tmp3*100);
     }
   }
 }

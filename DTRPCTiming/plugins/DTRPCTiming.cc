@@ -89,13 +89,12 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     //Not looking at BX now
     //unsigned int bx_RPCNRecHits
 
-/*  No simhit and matching for now
     unsigned int b_DTNSimHits;
     unsigned int b_RPCNSimHits;
 
     int b_ptype;
     TH1D *h_ptype;
-*/
+
     int nRPC;
     int nDT;
 /*
@@ -107,28 +106,23 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
     TH1D *h_yNMatchedME31;
     TH1D *h_yNMatchedME41;
-
-    TH1D *h_simValidME31x;
-    TH1D *h_simValidME31y;
-    TH1D *h_simValidME41x;
-    TH1D *h_simValidME41y;
-  
+*/
+    TH1D *h_simValidMBx[4];
+    TH1D *h_simValidMBy[4];
+    TH1D *h_simValidWx[5];
+    TH1D *h_simValidWy[5];
+/*
     TH2D *h_MatchedME31;
     TH2D *h_MatchedME41;
 
     TH2D *h_RatioME31;
     TH2D *h_RatioME41;
-
-    double sME31x[100];
-    double sME31y[100];
-    double sME41x[100];
-    double sME41y[100];
-
-    bool isValidME31x[100];
-    bool isValidME31y[100];
-    bool isValidME41x[100];
-    bool isValidME41y[100];
-
+*/
+    double sDTx[4][5][100];//station-wheel-distance
+    double sDTy[4][5][100];
+    bool isValidMBx[4][5][100];
+    bool isValidMBy[4][5][100];
+/*
     double ME31[25][25];
     double ME41[25][25];
 
@@ -136,8 +130,8 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     bool isMatchME41[25][25];
 */
     int EventNum;
-//    int label_;
-//    int numDigi_switch;
+    int label_;
+    int numDigi_switch;
 
     edm::ESHandle<DTGeometry> dtGeo;
     edm::ESHandle<RPCGeometry> rpcGeo;
@@ -153,7 +147,6 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
     GlobalPoint getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const;
     GlobalPoint getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const;
-    //std::pair<RPCRecHitCollection::const_iterator, float*> matchingRPC(CSCDetId rawId, const CSCCorrelatedLCTDigi& lct, float dx_cutoff, float dy_cutoff) const;
 };
 
 GlobalPoint
@@ -177,55 +170,16 @@ DTRPCTiming::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
   return rpc_gp;
 
 }
-/*
-//RPCRecHitCollection::const_iterator
-std::pair<RPCRecHitCollection::const_iterator, float*>
-DTRPCTiming::matchingRPC(CSCDetId rawId, const CSCCorrelatedLCTDigi& lct, float dx_cutoff, float dy_cutoff) const{
-//const float & makes this faster?
 
-  GlobalPoint gp_cscint(0.0,0.0,0.0);
-  gp_cscint = getCSCGlobalPosition(rawId, lct);
-
-  float min_distance = std::numeric_limits<float>::max();
-  RPCRecHitCollection::const_iterator rpc_hit_matched;
-  float min_DxDy[2] = {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()};
-  
-  for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
-    RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
-
-    GlobalPoint gp_rpc(0.0,0.0,0.0);
-    gp_rpc = getRPCGlobalPosition(rpc_id, *rpcIt);
-
-    if (rpc_id.region() == 0) continue; //skip the barrels
-
-    float Dx = abs(gp_rpc.x()-gp_cscint.x());
-    float Dy = abs(gp_rpc.y()-gp_cscint.y());
-    float distance = sqrt(Dx*Dx + Dy*Dy);
-
-    if (rawId.station() == 3 && rawId.ring() == 1 && rpc_id.station() == 3 && rpc_id.ring() == 1){
-      if (Dx < dx_cutoff && Dy < dy_cutoff && distance < min_distance){
-        min_DxDy[0]=Dx;
-        min_DxDy[1]=Dy;
-        min_distance = distance;
-        rpc_hit_matched = rpcIt;
-      }
-    }
-  }
-//  return rpc_hit_matched;
-  return std::make_pair(rpc_hit_matched,min_DxDy);
-}
-*/
 DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
 {
   dt4DSegments = consumes<DTRecSegment4DCollection>(iConfig.getParameter<edm::InputTag>("dt4DSegments"));
   auto RPCDigiLabel = iConfig.getParameter<edm::InputTag>("simMuonRPCDigis");
   rpcRecHitsToken_ = consumes<RPCRecHitCollection>(edm::InputTag(RPCDigiLabel.label(), "" ));
-
-  //GEANT4 simhit
   DTsimHitToken = consumes<PSimHitContainer>(iConfig.getUntrackedParameter<edm::InputTag>("DTsimHitLabel", edm::InputTag("g4SimHits:MuonDTHits")));
 
   //numDigi label
-  //label_ = iConfig.getUntrackedParameter<int>("label");
+  label_ = iConfig.getUntrackedParameter<int>("label");
 
   //now do what ever initialization is needed
   usesResource("TFileService");
@@ -241,11 +195,27 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_MBNDigis[i] = fs->make<TH1D>(Form("h_MB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
     h_MBNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
     h_MBNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+
+    h_simValidMBx[i] = fs->make<TH1D>(Form("h_simValidMB%ix",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_simValidMBx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
+    h_simValidMBx[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_simValidMBy[i] = fs->make<TH1D>(Form("h_simValidMB%iy",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_simValidMBy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
+    h_simValidMBy[i]->GetYaxis()->SetTitle("Matched (%)");
   }
   for(int i=0; i<5; i++){
     h_WNDigis[i] = fs->make<TH1D>(Form("h_W%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
     h_WNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
     h_WNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+
+    h_simValidWx[i] = fs->make<TH1D>(Form("h_simValidW%ix",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_simValidWx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
+    h_simValidWx[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_simValidWy[i] = fs->make<TH1D>(Form("h_simValidW%iy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_simValidWy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
+    h_simValidWy[i]->GetYaxis()->SetTitle("Matched (%)");
   }
 
   h_SWNDigis = fs->make<TH2D>("h_SWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
@@ -333,7 +303,7 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RatioME41 = fs->make<TH2D>("h_RatioME41", "Matching efficiency in ME41", 25, 0, 25, 25, 0, 25);
   h_RatioME41->GetXaxis()->SetTitle("X cutoff (cm)");
   h_RatioME41->GetYaxis()->SetTitle("Y cutoff (cm)");
-
+*/
   h_ptype = fs->make<TH1D>("h_ptype", "", 4,0,4);
   h_ptype->GetXaxis()->SetBinLabel(1,"Electron");
   h_ptype->GetXaxis()->SetBinLabel(2,"Muon");
@@ -341,23 +311,6 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_ptype->GetXaxis()->SetBinLabel(4,"Proton");
   h_ptype->GetXaxis()->SetTitle("Particle type");
   h_ptype->GetYaxis()->SetTitle("Entries");
-
-  h_simValidME31x = fs->make<TH1D>("h_simValidME31x", "Validation Percentage in ME3/1", 100, 0, 100);
-  h_simValidME31x->GetXaxis()->SetTitle("X cutoff (mm)");
-  h_simValidME31x->GetYaxis()->SetTitle("Matched (%)");
-
-  h_simValidME31y = fs->make<TH1D>("h_simValidME31y", "Validation Percentage in ME3/1", 100, 0, 100);
-  h_simValidME31y->GetXaxis()->SetTitle("Y cutoff (mm)");
-  h_simValidME31y->GetYaxis()->SetTitle("Matched (%)");
-
-  h_simValidME41x = fs->make<TH1D>("h_simValidME41x", "Validation Percentage in ME4/1", 100, 0, 100);
-  h_simValidME41x->GetXaxis()->SetTitle("X cutoff (mm)");
-  h_simValidME41x->GetYaxis()->SetTitle("Matched (%)");
-
-  h_simValidME41y = fs->make<TH1D>("h_simValidME41y", "Validation Percentage in ME4/1", 100, 0, 100);
-  h_simValidME41y->GetXaxis()->SetTitle("Y cutoff (mm)");
-  h_simValidME41y->GetYaxis()->SetTitle("Matched (%)");
-*/
 }
 
 DTRPCTiming::~DTRPCTiming()
@@ -369,20 +322,14 @@ void
 DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
 
+  EventInfo->Fill(0.5);
+
   iSetup.get<MuonGeometryRecord>().get( dtGeo );     
   iSetup.get<MuonGeometryRecord>().get( rpcGeo );     
 
-  EventInfo->Fill(0.5);
-
   iEvent.getByToken(dt4DSegments, all4DSegments);
   iEvent.getByToken(rpcRecHitsToken_, rpcRecHits);
-/*
-  //GEANT4 simhits
-  edm::Handle<PSimHitContainer> CSCsimHit;
-  iEvent.getByToken(CSCsimHitToken, CSCsimHit);
 
-  PSimHitContainer::const_iterator CSCsimIt;
-*/
   if (!all4DSegments.isValid()) {
     edm::LogInfo("DataNotFound") << "can't find DTRecSegment4D with label "<< all4DSegments << std::endl;
     return;
@@ -430,23 +377,30 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 4 && rpc_id.ring() == 1) bx_RE41NRecHits++;
   }
-  /*
-  //to check cscsimhit Info
-  for (CSCsimIt = CSCsimHit->begin(); CSCsimIt != CSCsimHit->end(); CSCsimIt++) {
-    CSCDetId cscsimhit_id(CSCsimIt->detUnitId());
-    b_ptype = CSCsimIt->particleType();
-//    cout << "ptype :: " << b_ptype << endl;
-    if ( abs(b_ptype) != 11 && abs(b_ptype) != 13 && abs(b_ptype) != 2212 && abs(b_ptype) != 211 ) cout << "NONEPARTICLE TYPE :: " << abs(b_ptype) << endl;
+
+  //GEANT4 simhits
+  edm::Handle<PSimHitContainer> DTsimHit;
+  iEvent.getByToken(DTsimHitToken, DTsimHit);
+  PSimHitContainer::const_iterator DTsimIt;
+
+  for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
+    DTChamberId dt_simId = DTsimIt->detUnitId();
+    if(dt_simId.station() == 4) continue; //No theta layer in MB4
+    //cout << dt_simId << "/";
+    b_ptype = DTsimIt->particleType();
+    //cout << "ptype :: " << b_ptype << endl;
+    //if ( abs(b_ptype) != 11 && abs(b_ptype) != 13 && abs(b_ptype) != 2212 && abs(b_ptype) != 211 ) cout << "NONEPARTICLE TYPE :: " << abs(b_ptype) << endl;
     
     if (abs(b_ptype) == 11) h_ptype->Fill(0.5);
     if (abs(b_ptype) == 13) h_ptype->Fill(1.5);
     if (abs(b_ptype) == 211) h_ptype->Fill(2.5);
     if (abs(b_ptype) == 2212) h_ptype->Fill(3.5);
-    
+    /*
     if (cscsimhit_id.station() == 3 && cscsimhit_id.ring() == 1) b_ME31NSimHits++;
     if (cscsimhit_id.station() == 4 && cscsimhit_id.ring() == 1) b_ME41NSimHits++;
+    */
   }
-  */
+ 
   //to check rpcsimhit Info
 
   //std::cout << "\t Number of DT Segments in this event = " << all4DSegments->size() << std::endl;
@@ -463,28 +417,15 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     //b_cscBX = b_rpcBX = 0;
 
     GlobalPoint gp_dt;
-    /*
-    numDigi_switch = label_;
-    if (numDigi_switch == 1){
-      range1.first++;
-      if (range1.first != range1.second) continue; // check that there are two digis in the chamber, there is probably a better way but it works...
-      range1.first--;
-    }
-    else if (numDigi_switch == 4){
-      range1.first++;
-      range1.first++;
-      range1.first++;
-      range1.first++;
-      if (range1.first != range1.second) continue; // check that there are two digis in the chamber, there is probably a better way but it works...
-      range1.first--;
-      range1.first--;
-      range1.first--;
-      range1.first--;
-    }
-//    else cout << "option is not decleared!" << endl;
-    */
 
+    numDigi_switch = label_;
     DTRecSegment4DCollection::range dtRange = all4DSegments->get(*dtChamberId);
+    if (numDigi_switch == 1){
+      dtRange.first++;
+      if (dtRange.first != dtRange.second) continue; //Check only 1 digi(segment) or not
+      dtRange.first--;
+    }
+
     for(DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment){
 
       DTRecSegment4D tmpseg = *dtSegment;
@@ -497,78 +438,61 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       gp_dt = GlobalPoint(0.0,0.0,0.0);
       gp_dt = getDTGlobalPosition(dt_id, tmpseg);
-      if (abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
+      if(abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
 
       float Zo = gp_dt.z();
-      //cout << Zo << " / ";
 
       pure_DTNDigis_Total[idxDTStation][idxDTWheel]++;
-      /*
-      const auto cscCham = getCSCGeometry().chamber(csc_id);
-      float fractional_strip = lct->getFractionalStrip();
-      //CSCs have 6 layers. The key (refernce) layer is the third layer (CSCConstant)
-      const auto layer_geo = cscCham->layer(CSCConstants::KEY_CLCT_LAYER)->geometry();
 
-      // LCT::getKeyWG() also starts from 0
-      float wire = layer_geo->middleWireOfGroup(lct->getKeyWG() + 1);
-      const LocalPoint csc_intersect = layer_geo->intersectionOfStripAndWire(fractional_strip, wire);
-
+      const LocalPoint& dt_lp = tmpseg.localPosition();
       int cptype = 0;
-      bool csc_simmatched = false;
+      bool dt_simmatched = false;
 
-      for (int i = 0; i < 100; i++){
-        isValidME31x[i] = false;
-        isValidME31y[i] = false;
-        isValidME41x[i] = false;
-        isValidME41y[i] = false;
-      }
-
-      for (CSCsimIt = CSCsimHit->begin(); CSCsimIt != CSCsimHit->end(); CSCsimIt++) {
-
-        cptype = CSCsimIt->particleType();
-        //const GlobalPoint sim_gp = cscGeo->idToDet(csc_id)->surface().toGlobal(CSCsimIt->localPosition());
-        const LocalPoint lp_cscsim = CSCsimIt->localPosition();
-        CSCDetId cscsim_id(CSCsimIt->detUnitId());
-
-        //sim validation with window
-        if (abs(cptype) != 13) continue;
-        if (csc_id.endcap() == cscsim_id.endcap() && csc_id.station() == cscsim_id.station() && csc_id.ring() == cscsim_id.ring() && csc_id.chamber() == cscsim_id.chamber()){
-
-          cout << "I'm the same" << endl;
-
-          if (sqrt(csc_intersect.x()-lp_cscsim.x())*(csc_intersect.x()-lp_cscsim.x())+(csc_intersect.y()-lp_cscsim.y())*(csc_intersect.y()-lp_cscsim.y()) < 0.5) csc_simmatched = true;
-  
-          float sDx = abs(csc_intersect.x() - lp_cscsim.x());
-          float sDy = abs(csc_intersect.y() - lp_cscsim.y());
-  
-          //ME31
-          if (csc_id.station() == 3 && csc_id.ring() == 1) {
-            for (int i = 0; i < 100; i++) {
-              if (sDx < i/100.) isValidME31x[i] = true;
-              if (sDy < i/100.) isValidME31y[i] = true;
-            }
+      for(int i=0; i<4; i++){
+        for(int j=0; j < 5; j++){
+          for(int k=0; k < 100; k++){
+            isValidMBx[i][j][k] = false;
+            isValidMBy[i][j][k] = false;
           }
-  
-          //ME41
-          if (csc_id.station() == 4 && csc_id.ring() == 1) {
-            for (int i = 0; i < 100; i++) {
-              if (sDx < i/100.) isValidME41x[i] = true;
-              if (sDy < i/100.) isValidME41y[i] = true;
-            }
-          }
-
         }
       }
 
-      for (int i = 0; i < 100; i++){
-        if (isValidME31x[i]) sME31x[i]++;
-        if (isValidME31y[i]) sME31y[i]++;
-        if (isValidME41x[i]) sME41x[i]++;
-        if (isValidME41y[i]) sME41y[i]++;
+      for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
+
+        cptype = DTsimIt->particleType();
+        //const GlobalPoint sim_gp = cscGeo->idToDet(csc_id)->surface().toGlobal(CSCsimIt->localPosition());
+        const LocalPoint lp_dtsim = DTsimIt->localPosition();
+        DTChamberId dtsim_id = DTsimIt->detUnitId();
+
+        //sim validation with window
+        if (abs(cptype) != 13) continue;
+        if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
+
+          //cout << "I'm the same" << endl;
+
+          if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
+  
+          float sDx = abs(dt_lp.x() - lp_dtsim.x());
+          float sDy = abs(dt_lp.y() - lp_dtsim.y());
+          cout << sDx << "/" << sDy << endl;
+          for (int k=0; k<100; k++) {
+            if (sDx < k/100.) isValidMBx[idxDTStation][idxDTWheel][k] = true;
+            if (sDy < k/100.) isValidMBy[idxDTStation][idxDTWheel][k] = true;
+          }
+        }
       }
 
-      if (!csc_simmatched && abs(cptype) != 13) continue;
+      for(int i=0; i<4; i++){
+        for(int j=0; j < 5; j++){
+          for(int k=0; k < 100; k++){
+            if(isValidMBx[i][j][k]) sDTx[i][j][k]++;
+            if(isValidMBy[i][j][k]) sDTy[i][j][k]++;
+          }
+        }
+      }
 
+      //if (!dt_simmatched && abs(cptype) != 13) continue;
+      /*
       double xslope = gp_cscint.x()/gp_cscint.z();
       double yslope = gp_cscint.y()/gp_cscint.z();
       */
@@ -640,10 +564,16 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       */
     }//CSCLCT loop
 
-    for(int i=0; i<4; i++)
-      h_MBNDigis[i]->Fill(b_DTNDigis[i][0]+b_DTNDigis[i][1]+b_DTNDigis[i][2]+b_DTNDigis[i][3]+b_DTNDigis[i][4]);
-    for(int j=0; j<5; j++)
-      h_WNDigis[j]->Fill(b_DTNDigis[0][j]+b_DTNDigis[1][j]+b_DTNDigis[2][j]+b_DTNDigis[3][j]);
+    for(int i=0; i<4; i++){
+      double tmp = 0;
+      for(int j=0; j<5; j++) tmp += b_DTNDigis[i][j];
+      h_MBNDigis[i]->Fill(tmp);
+    }
+    for(int j=0; j<5; j++){
+      double tmp = 0;
+      for(int i=0; i<4; i++) tmp += b_DTNDigis[i][j];
+      h_WNDigis[j]->Fill(tmp);
+    }
     /*
     if (b_ME31NSimHits != 0) h_cscME31NSimHits->Fill(b_ME31NSimHits);
     if (b_ME41NSimHits != 0) h_cscME41NSimHits->Fill(b_ME41NSimHits);
@@ -657,10 +587,16 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }//CSCChamber loop
 
   h_NRecHits->Fill(nRPC);
-  for(int i=0; i<6; i++)
-    h_RBNRecHits[i]->Fill(b_RPCNRecHits[i][0]+b_RPCNRecHits[i][1]+b_RPCNRecHits[i][2]+b_RPCNRecHits[i][3]+b_RPCNRecHits[i][4]);
-  for(int j=0; j<5; j++)
-    h_WNRecHits[j]->Fill(b_RPCNRecHits[0][j]+b_RPCNRecHits[1][j]+b_RPCNRecHits[2][j]+b_RPCNRecHits[3][j]+b_RPCNRecHits[4][j]+b_RPCNRecHits[5][j]);
+  for(int i=0; i<6; i++){
+    unsigned int tmp = 0;
+    for(int j=0; j<5; j++) tmp += b_RPCNRecHits[i][j];
+    h_RBNRecHits[i]->Fill(tmp);
+  }
+  for(int j=0; j<5; j++){
+    unsigned int tmp = 0;
+    for(int i=0; i<6; i++) tmp += b_RPCNRecHits[i][j];
+    h_WNRecHits[j]->Fill(tmp);
+  }
 
   tree->Fill();
   EventInfo->Fill(1.5);
@@ -708,23 +644,23 @@ DTRPCTiming::beginJob()
 
   tree->Branch("ptype" , &b_ptype , "ptype/i");
 */
-    for(int i=0; i<4; i++){
-      for(int j=0; j<5; j++) b_DTNDigis_Total[i][j]=0;
+  for(int i=0; i<4; i++){
+    for(int j=0; j<5; j++){
+      b_DTNDigis_Total[i][j]=0;
+      pure_DTNDigis_Total[i][j]=0;
+
+      for(int k=0; k < 100; k++){
+        sDTx[i][j][k] = 0;
+        sDTy[i][j][k] = 0;
+      }
     }
-  //pure_ME31NDigis_Total = pure_ME41NDigis_Total = 0;
+  }
 /*
   for (int i=0; i<25; i++){
     for (int j=0; j<25; j++){
       ME31[i][j] = 0;
       ME41[i][j] = 0;
     }
-  }
-
-  for (int i=0; i<100; i++){
-      sME31x[i] = 0;
-      sME31y[i] = 0;
-      sME41x[i] = 0;
-      sME41y[i] = 0;
   }
 */
 }
@@ -770,19 +706,32 @@ DTRPCTiming::endJob()
         h_RatioME31->SetBinContent(i+1,j+1,ME31[i][j]/pure_ME31NDigis_Total*100);
         h_RatioME41->SetBinContent(i+1,j+1,ME41[i][j]/pure_ME41NDigis_Total*100);  
       }
-    } 
-  }
-
-  if (pure_ME31NDigis_Total != 0 && pure_ME41NDigis_Total != 0){
-    for (int i=0; i<100; i++){
-      //sim validation
-      h_simValidME31x->SetBinContent(i+1,sME31x[i]/pure_ME31NDigis_Total*100);
-      h_simValidME31y->SetBinContent(i+1,sME31y[i]/pure_ME31NDigis_Total*100);
-      h_simValidME41x->SetBinContent(i+1,sME41x[i]/pure_ME31NDigis_Total*100);
-      h_simValidME41y->SetBinContent(i+1,sME41y[i]/pure_ME31NDigis_Total*100);
     }
   }
 */
+  for (int k=0; k<100; k++){
+    //sim validation
+    for(int i=0; i<4; i++){
+      double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
+      for(int j=0; j<5; j++){
+        tmp1 += sDTx[i][j][k];
+        tmp2 += sDTy[i][j][k];
+        tmp3 += pure_DTNDigis_Total[i][j];
+      }
+      h_simValidMBx[i]->Fill(tmp1/tmp3*100);
+      h_simValidMBy[i]->Fill(tmp2/tmp3*100);
+    }
+    for(int j=0; j<5; j++){
+      double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
+      for(int i=0; i<4; i++){
+        tmp1 += sDTx[i][j][k];
+        tmp2 += sDTy[i][j][k];
+        tmp3 += pure_DTNDigis_Total[i][j];
+      }
+      h_simValidWx[j]->Fill(tmp1/tmp3*100);
+      h_simValidWy[j]->Fill(tmp2/tmp3*100);
+    }
+  }
 }
 
 void

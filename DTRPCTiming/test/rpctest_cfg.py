@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing ('analysis')
-#options.register('Labels', 0, VarParsing.multiplicity.singleton, VarParsing.varType.int, "1: 1DIGI, 4:4DIGI")
+options.register('Labels', 1, VarParsing.multiplicity.singleton, VarParsing.varType.int, "1: 1DIGI, 4:4DIGI")
 options.parseArguments()
 
 process = cms.Process("rpcNtupler")
@@ -48,10 +48,10 @@ process.source = cms.Source("PoolSource",
 process.rpcntupler = cms.EDAnalyzer("DTRPCTiming",
 #  rpcRecHits = cms.InputTag('rpcRecHits'),
 #  simMuonRPCDigis = cms.InputTag('simMuonRPCDigis'),
-#  simHitLl = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
+  DTsimHitLabel = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
   simMuonRPCDigis = cms.InputTag('rpcRecHits'),
   dt4DSegments = cms.InputTag('dt4DSegments'),
-#  label = cms.untracked.int32(options.Labels)
+  label = cms.untracked.int32(options.Labels)#Needs for sim val. calculation
 )
 
 process.TFileService = cms.Service("TFileService",

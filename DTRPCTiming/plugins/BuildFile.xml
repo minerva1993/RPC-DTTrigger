@@ -9,4 +9,5 @@
 <use name="DataFormats/RPCRecHit"/>
 <use name="DataFormats/RPCDigi"/>
 <use name="CondFormats/RPCObjects"/>
+<use name="SimDataFormats/GeneratorProducts"/>
 <flags EDM_PLUGIN="1"/>

@@ -40,6 +40,8 @@
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 
 #include "SimDataFormats/TrackingHit/interface/PSimHitContainer.h"
+#include "SimDataFormats/RPCDigiSimLink/interface/RPCDigiSimLink.h"
+#include "SimTracker/TrackerHitAssociation/interface/TrackerHitAssociator.h"
 
 using namespace edm;
 using namespace std;
@@ -63,21 +65,43 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *EventInfo;
 
     //DT Digi (using segments, instead)
-    TH1D *h_MBNDigis[4]; //Station
-    TH1D *h_WNDigis[5]; //Wheel
-    TH2D *h_SWNDigis; //Station - wheel 
+    TH1D *h_DTBNDigis[4]; //Station
+    TH1D *h_DTWNDigis[5]; //Wheel
+    TH2D *h_DTSWNDigis; //Station - wheel
+    TH1D *h_DTBNSimHits[4];
+    TH1D *h_DTWNSimHits[5];
+    TH2D *h_DTSWNSimHits;
 
     //RPC
-    TH1D *h_NRecHits;
-    TH1D *h_RBNRecHits[6]; //Station, separating in/out in RB1,2
-    TH1D *h_WNRecHits[5]; //Wheel
-    TH2D *h_SWNRecHits;
+    TH1D *h_RPCNRecHits;
+    TH1D *h_RPCBNRecHits[6]; //Station, separating in/out in RB1,2
+    TH1D *h_RPCWNRecHits[5]; //Wheel
+    TH2D *h_RPCSWNRecHits;
+    TH1D *h_RPCTimeRes;
 
     //N simHit per digi; in 1 digi case, count numbers in same chamber
     TH1D *h_NSPD;
 
     //No Bx=0 histos / simHit multiplicity now
 
+    TH1D *h_DTBsimValidx[4];
+    TH1D *h_DTBsimValidy[4];
+    TH1D *h_DTWsimValidx[5];
+    TH1D *h_DTWsimValidy[5];
+/*
+    TH1D *h_xNMatchedME31;
+    TH1D *h_xNMatchedME41;
+
+    TH1D *h_yNMatchedME31;
+    TH1D *h_yNMatchedME41;
+    TH2D *h_MatchedME31;
+    TH2D *h_MatchedME41;
+
+    TH2D *h_RatioME31;
+    TH2D *h_RatioME41;
+*/
+
+    //Declare variables
     unsigned int b_EVENT, b_RUN, b_LUMI;
 
     //DT
@@ -86,13 +110,12 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     //unsigned int bx_DTNDigis
     double b_DTNDigis_Total[4][5];
     double pure_DTNDigis_Total[4][5];
+    unsigned int b_DTNSimHits[4][5];
 
     //RPC
     unsigned int b_RPCNRecHits[6][5]; //0~5: station 1~2(in/out)~3~4, 0~4: wheel -2~2
     //Not looking at BX now
     //unsigned int bx_RPCNRecHits
-
-    unsigned int b_DTNSimHits;
     unsigned int b_RPCNSimHits;
 
     int b_ptype;
@@ -103,28 +126,11 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 /*
     int b_rpcBX;
     int b_cscBX;
-
-    TH1D *h_xNMatchedME31;
-    TH1D *h_xNMatchedME41;
-
-    TH1D *h_yNMatchedME31;
-    TH1D *h_yNMatchedME41;
-*/
-    TH1D *h_simValidMBx[4];
-    TH1D *h_simValidMBy[4];
-    TH1D *h_simValidWx[5];
-    TH1D *h_simValidWy[5];
-/*
-    TH2D *h_MatchedME31;
-    TH2D *h_MatchedME41;
-
-    TH2D *h_RatioME31;
-    TH2D *h_RatioME41;
 */
     double sDTx[4][5][100];//station-wheel-distance
     double sDTy[4][5][100];
-    bool isValidMBx[4][5][100];
-    bool isValidMBy[4][5][100];
+    bool DTisValidx[4][5][100];
+    bool DTisValidy[4][5][100];
 /*
     double ME31[25][25];
     double ME41[25][25];
@@ -139,14 +145,17 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     edm::ESHandle<DTGeometry> dtGeo;
     edm::ESHandle<RPCGeometry> rpcGeo;
 
-    edm::EDGetTokenT<DTRecSegment4DCollection> dt4DSegments;
+    edm::EDGetTokenT<DTRecSegment4DCollection> dt4DSegments_;
     edm::Handle<DTRecSegment4DCollection> all4DSegments;
 
     edm::EDGetTokenT<RPCRecHitCollection> rpcRecHitsToken_;
     edm::Handle<RPCRecHitCollection> rpcRecHits;
 
     //GEANT4 simhits
-    edm::EDGetTokenT<edm::PSimHitContainer> DTsimHitToken;
+    edm::EDGetTokenT<edm::PSimHitContainer> DTsimHitToken_;
+    edm::Handle<PSimHitContainer> DTsimHit;
+    edm::EDGetTokenT<edm::DetSetVector<RPCDigiSimLink>> RPCdigisimlinkToken_;
+    edm::Handle<edm::DetSetVector<RPCDigiSimLink>> thelinkDigis;
 
     GlobalPoint getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const;
     GlobalPoint getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const;
@@ -176,10 +185,11 @@ DTRPCTiming::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
 
 DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
 {
-  dt4DSegments = consumes<DTRecSegment4DCollection>(iConfig.getParameter<edm::InputTag>("dt4DSegments"));
+  dt4DSegments_ = consumes<DTRecSegment4DCollection>(iConfig.getParameter<edm::InputTag>("dt4DSegments"));
   auto RPCDigiLabel = iConfig.getParameter<edm::InputTag>("simMuonRPCDigis");
   rpcRecHitsToken_ = consumes<RPCRecHitCollection>(edm::InputTag(RPCDigiLabel.label(), "" ));
-  DTsimHitToken = consumes<PSimHitContainer>(iConfig.getUntrackedParameter<edm::InputTag>("DTsimHitLabel", edm::InputTag("g4SimHits:MuonDTHits")));
+  DTsimHitToken_ = consumes<PSimHitContainer>(iConfig.getUntrackedParameter<edm::InputTag>("DTsimHitLabel", edm::InputTag("g4SimHits:MuonDTHits")));
+  RPCdigisimlinkToken_ = consumes<edm::DetSetVector<RPCDigiSimLink>>(iConfig.getParameter<edm::InputTag>("rpcSimLinkLabel"));
 
   //numDigi label
   label_ = iConfig.getUntrackedParameter<int>("label");
@@ -195,49 +205,61 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
 
   //DT
   for(int i=0; i<4; i++){
-    h_MBNDigis[i] = fs->make<TH1D>(Form("h_MB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
-    h_MBNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
-    h_MBNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+    h_DTBNDigis[i] = fs->make<TH1D>(Form("h_DTMB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
+    h_DTBNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
+    h_DTBNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_simValidMBx[i] = fs->make<TH1D>(Form("h_simValidMB%ix",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
-    h_simValidMBx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
-    h_simValidMBx[i]->GetYaxis()->SetTitle("Matched (%)");
+    h_DTBNSimHits[i] = fs->make<TH1D>(Form("h_DTMB%iNSimHits",i+1), Form("Number of DT simhit per chamber (MB%i)",i+1), 10, 0, 10);
+    h_DTBNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
+    h_DTBNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_simValidMBy[i] = fs->make<TH1D>(Form("h_simValidMB%iy",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
-    h_simValidMBy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
-    h_simValidMBy[i]->GetYaxis()->SetTitle("Matched (%)");
+    h_DTBsimValidx[i] = fs->make<TH1D>(Form("h_DTMB%isimValidx",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_DTBsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
+    h_DTBsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_DTBsimValidy[i] = fs->make<TH1D>(Form("h_DTMB%isimValidy",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_DTBsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
+    h_DTBsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
   }
   for(int i=0; i<5; i++){
-    h_WNDigis[i] = fs->make<TH1D>(Form("h_W%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
-    h_WNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
-    h_WNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
+    h_DTWNDigis[i] = fs->make<TH1D>(Form("h_DTW%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
+    h_DTWNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
+    h_DTWNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_simValidWx[i] = fs->make<TH1D>(Form("h_simValidW%ix",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
-    h_simValidWx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
-    h_simValidWx[i]->GetYaxis()->SetTitle("Matched (%)");
+    h_DTWNSimHits[i] = fs->make<TH1D>(Form("h_DTW%iNSimHits",i-2), Form("Number of DT simhit per chamber (W%i)",i-2), 10, 0, 10);
+    h_DTWNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
+    h_DTWNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_simValidWy[i] = fs->make<TH1D>(Form("h_simValidW%iy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
-    h_simValidWy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
-    h_simValidWy[i]->GetYaxis()->SetTitle("Matched (%)");
+    h_DTWsimValidx[i] = fs->make<TH1D>(Form("h_DTW%isimValidx",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_DTWsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
+    h_DTWsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_DTWsimValidy[i] = fs->make<TH1D>(Form("h_DTW%isimValidWy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_DTWsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
+    h_DTWsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
   }
 
-  h_SWNDigis = fs->make<TH2D>("h_SWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
-  h_SWNDigis->GetXaxis()->SetTitle("Station");
-  h_SWNDigis->GetYaxis()->SetTitle("Wheel");
-  h_SWNDigis->GetXaxis()->SetBinLabel(1,"MB1");
-  h_SWNDigis->GetXaxis()->SetBinLabel(2,"MB2");
-  h_SWNDigis->GetXaxis()->SetBinLabel(3,"MB3");
-  h_SWNDigis->GetXaxis()->SetBinLabel(4,"MB4");
-  h_SWNDigis->GetYaxis()->SetBinLabel(1,"W-2");
-  h_SWNDigis->GetYaxis()->SetBinLabel(2,"W-1");
-  h_SWNDigis->GetYaxis()->SetBinLabel(3,"W0");
-  h_SWNDigis->GetYaxis()->SetBinLabel(4,"W+1");
-  h_SWNDigis->GetYaxis()->SetBinLabel(5,"W+2");
+  h_DTSWNDigis = fs->make<TH2D>("h_DTSWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
+  h_DTSWNDigis->GetXaxis()->SetTitle("Station");
+  h_DTSWNDigis->GetYaxis()->SetTitle("Wheel");
+  h_DTSWNDigis->GetXaxis()->SetBinLabel(1,"MB1");
+  h_DTSWNDigis->GetXaxis()->SetBinLabel(2,"MB2");
+  h_DTSWNDigis->GetXaxis()->SetBinLabel(3,"MB3");
+  h_DTSWNDigis->GetXaxis()->SetBinLabel(4,"MB4");
+  h_DTSWNDigis->GetYaxis()->SetBinLabel(1,"W-2");
+  h_DTSWNDigis->GetYaxis()->SetBinLabel(2,"W-1");
+  h_DTSWNDigis->GetYaxis()->SetBinLabel(3,"W0");
+  h_DTSWNDigis->GetYaxis()->SetBinLabel(4,"W+1");
+  h_DTSWNDigis->GetYaxis()->SetBinLabel(5,"W+2");
 
   //RPC
-  h_NRecHits = fs->make<TH1D>("h_NRecHits", "", 10, 0, 10);
-  h_NRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
-  h_NRecHits->GetYaxis()->SetTitle("Number of chamber");
+  h_RPCTimeRes = fs->make<TH1D>("h_RPCTimeRes", "RPC time residual (TOF-time)", 50, 0, 50);
+  h_RPCTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
+  h_RPCNRecHits = fs->make<TH1D>("h_RPCNRecHits", "", 10, 0, 10);
+  h_RPCNRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
+  h_RPCNRecHits->GetYaxis()->SetTitle("Number of chamber");
 
   for(int i=0; i<6; i++){
     const char* inout = "";
@@ -250,31 +272,31 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     }
     else st = i-1;
 
-    h_RBNRecHits[i] = fs->make<TH1D>(Form("h_RB%i%sNRecHits",st,inout), Form("Number of rechit per chamber (RB%i%s)",st,inout), 10, 0, 10);
-    h_RBNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
-    h_RBNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
+    h_RPCBNRecHits[i] = fs->make<TH1D>(Form("h_RPCB%i%sNRecHits",st,inout), Form("Number of rechit per chamber (RB%i%s)",st,inout), 10, 0, 10);
+    h_RPCBNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
+    h_RPCBNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
   }
   for(int i=0; i<5; i++){
-    h_WNRecHits[i] = fs->make<TH1D>(Form("h_W%iNRecHits",i-2), Form("Number of rechit per chamber (W%i)",i-2), 10, 0, 10);
-    h_WNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
-    h_WNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
+    h_RPCWNRecHits[i] = fs->make<TH1D>(Form("h_RPCW%iNRecHits",i-2), Form("Number of rechit per chamber (W%i)",i-2), 10, 0, 10);
+    h_RPCWNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
+    h_RPCWNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
   }
-  h_SWNRecHits = fs->make<TH2D>("h_SWNRecHits", "Number of rechit per chamber", 6, 0.5, 6.5, 5, -2.5, 2.5);
-  h_SWNRecHits->GetXaxis()->SetTitle("Station");
-  h_SWNRecHits->GetYaxis()->SetTitle("Wheel");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(1,"RB1in");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(2,"RB1out");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(3,"RB2in");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(4,"RB2out");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(5,"RB3");
-  h_SWNRecHits->GetXaxis()->SetBinLabel(6,"RB4");
-  h_SWNRecHits->GetYaxis()->SetBinLabel(1,"W-2");
-  h_SWNRecHits->GetYaxis()->SetBinLabel(2,"W-1");
-  h_SWNRecHits->GetYaxis()->SetBinLabel(3,"W0");
-  h_SWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
-  h_SWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
+  h_RPCSWNRecHits = fs->make<TH2D>("h_RPCSWNRecHits", "Number of rechit per chamber", 6, 0.5, 6.5, 5, -2.5, 2.5);
+  h_RPCSWNRecHits->GetXaxis()->SetTitle("Station");
+  h_RPCSWNRecHits->GetYaxis()->SetTitle("Wheel");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(1,"RB1in");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(2,"RB1out");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(3,"RB2in");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(4,"RB2out");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(5,"RB3");
+  h_RPCSWNRecHits->GetXaxis()->SetBinLabel(6,"RB4");
+  h_RPCSWNRecHits->GetYaxis()->SetBinLabel(1,"W-2");
+  h_RPCSWNRecHits->GetYaxis()->SetBinLabel(2,"W-1");
+  h_RPCSWNRecHits->GetYaxis()->SetBinLabel(3,"W0");
+  h_RPCSWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
+  h_RPCSWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
 
-  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 30, 0, 30);
+  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 20, 0, 20);
   h_NSPD->GetXaxis()->SetTitle("Number of simHit");
   h_NSPD->GetYaxis()->SetTitle("Number of digi (segment)");
 
@@ -334,8 +356,10 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   iSetup.get<MuonGeometryRecord>().get( dtGeo );     
   iSetup.get<MuonGeometryRecord>().get( rpcGeo );     
 
-  iEvent.getByToken(dt4DSegments, all4DSegments);
+  iEvent.getByToken(dt4DSegments_, all4DSegments);
+  iEvent.getByToken(DTsimHitToken_, DTsimHit);
   iEvent.getByToken(rpcRecHitsToken_, rpcRecHits);
+  iEvent.getByToken(RPCdigisimlinkToken_, thelinkDigis);
 
   if (!all4DSegments.isValid()) {
     edm::LogInfo("DataNotFound") << "can't find DTRecSegment4D with label "<< all4DSegments << std::endl;
@@ -359,9 +383,10 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   nRPC = nDT = 0;
   for(int i=0; i<6; i++){
     for(int j=0; j<5; j++) b_RPCNRecHits[i][j]=0;
-  } 
-
-  //b_ME31NSimHits = b_ME41NSimHits = b_RE31NSimHits = b_RE41NSimHits = 0;
+  }
+  for(int i=0; i<4; i++){
+    for(int j=0; j<5; j++) b_DTNSimHits[i][j]=0;
+  }
 
   //to check rechit info
   for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
@@ -379,17 +404,48 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if(rpc_id.station() <= 2) idxRPCStation = (rpc_id.station()-1)*(rpc_id.station()) + (rpc_id.layer()-1); //0~3
     else idxRPCStation = rpc_id.station() + 1; 
 
-    h_SWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
+    h_RPCSWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
     b_RPCNRecHits[idxRPCStation][idxRPCRing]++;
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 4 && rpc_id.ring() == 1) bx_RE41NRecHits++;
+
+    //https://github.com/cms-sw/cmssw/blob/9a33fb13bee1a546877a4b581fa63876043f38f0/SimMuon/MCTruth/src/RPCHitAssociator.cc#L74-L92
+    int fstrip = rpcIt->firstClusterStrip();
+    int cls = rpcIt->clusterSize();
+    int bx = rpcIt->BunchX();
+
+    std::vector<SimHitIdpr> matched;
+    std::set<RPCDigiSimLink> links;
+    for (int i = fstrip; i < fstrip + cls; ++i) {
+
+      for (edm::DetSetVector<RPCDigiSimLink>::const_iterator itlink = thelinkDigis->begin(); itlink != thelinkDigis->end(); itlink++) {
+        for (edm::DetSet<RPCDigiSimLink>::const_iterator digi_iter = itlink->data.begin(); digi_iter != itlink->data.end(); ++digi_iter) {
+          uint32_t detid = digi_iter->getDetUnitId();
+          int str = digi_iter->getStrip();
+          int bunchx = digi_iter->getBx();
+
+          if (detid == rpc_id && str == i && bunchx == bx) {
+            links.insert(*digi_iter);
+          }
+        }
+      }
+
+      if(links.empty()) cout << "Unmatched simHit!" << endl;
+
+      for(std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink){
+        SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
+        if(find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
+      }
+      //cout << matched.size() << " ";
+    }
+    if(!links.empty()){
+      //cout << links.begin()->getTimeOfFlight() << " ";
+      h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+    }
   }
 
   //GEANT4 simhits
-  edm::Handle<PSimHitContainer> DTsimHit;
-  iEvent.getByToken(DTsimHitToken, DTsimHit);
   PSimHitContainer::const_iterator DTsimIt;
-
   for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
     DTChamberId dt_simId = DTsimIt->detUnitId();
     if(dt_simId.station() == 4) continue; //No theta layer in MB4
@@ -402,10 +458,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (abs(b_ptype) == 13) h_ptype->Fill(1.5);
     if (abs(b_ptype) == 211) h_ptype->Fill(2.5);
     if (abs(b_ptype) == 2212) h_ptype->Fill(3.5);
-    /*
-    if (cscsimhit_id.station() == 3 && cscsimhit_id.ring() == 1) b_ME31NSimHits++;
-    if (cscsimhit_id.station() == 4 && cscsimhit_id.ring() == 1) b_ME41NSimHits++;
-    */
+
+    b_DTNSimHits[dt_simId.station()-1][dt_simId.wheel()+2]++;
   }
  
   //to check rpcsimhit Info
@@ -458,8 +512,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       for(int i=0; i<4; i++){
         for(int j=0; j < 5; j++){
           for(int k=0; k < 100; k++){
-            isValidMBx[i][j][k] = false;
-            isValidMBy[i][j][k] = false;
+            DTisValidx[i][j][k] = false;
+            DTisValidy[i][j][k] = false;
           }
         }
       }
@@ -484,8 +538,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           float sDx = abs(dt_lp.x() - lp_dtsim.x());
           float sDy = abs(dt_lp.y() - lp_dtsim.y());
           for (int k=0; k<100; k++) {
-            if (sDx < k/100.) isValidMBx[idxDTStation][idxDTWheel][k] = true;
-            if (sDy < k/100.) isValidMBy[idxDTStation][idxDTWheel][k] = true;
+            if (sDx < k/100.) DTisValidx[idxDTStation][idxDTWheel][k] = true;
+            if (sDy < k/100.) DTisValidy[idxDTStation][idxDTWheel][k] = true;
           }
         }
       }
@@ -495,8 +549,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       for(int i=0; i<4; i++){
         for(int j=0; j < 5; j++){
           for(int k=0; k < 100; k++){
-            if(isValidMBx[i][j][k]) sDTx[i][j][k]++;
-            if(isValidMBy[i][j][k]) sDTy[i][j][k]++;
+            if(DTisValidx[i][j][k]) sDTx[i][j][k]++;
+            if(DTisValidy[i][j][k]) sDTy[i][j][k]++;
           }
         }
       }
@@ -509,7 +563,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       */
 
       //No sim match, should be same as pure_*, no bx for now
-      h_SWNDigis->Fill(dt_id.station(), dt_id.wheel(), 1);
+      h_DTSWNDigis->Fill(dt_id.station(), dt_id.wheel(), 1);
       b_DTNDigis_Total[idxDTStation][idxDTWheel]++;
       b_DTNDigis[idxDTStation][idxDTWheel]++;
       /*
@@ -576,37 +630,40 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     }//CSCLCT loop
 
     for(int i=0; i<4; i++){
-      double tmp = 0;
-      for(int j=0; j<5; j++) tmp += b_DTNDigis[i][j];
-      h_MBNDigis[i]->Fill(tmp);
+      double tmp1 = 0; unsigned int tmp2 = 0;
+      for(int j=0; j<5; j++){
+        tmp1 += b_DTNDigis[i][j];
+        tmp2 += b_DTNSimHits[i][j];
+      }
+      h_DTBNDigis[i]->Fill(tmp1);
+      h_DTBNSimHits[i]->Fill(tmp2);
     }
     for(int j=0; j<5; j++){
-      double tmp = 0;
-      for(int i=0; i<4; i++) tmp += b_DTNDigis[i][j];
-      h_WNDigis[j]->Fill(tmp);
+      double tmp1 = 0; unsigned int tmp2 = 0;
+      for(int i=0; i<4; i++){
+        tmp1 += b_DTNDigis[i][j];
+        tmp2 += b_DTNSimHits[i][j];
+      }
+      h_DTWNDigis[j]->Fill(tmp1);
+      h_DTWNSimHits[j]->Fill(tmp2);
     }
     /*
-    if (b_ME31NSimHits != 0) h_cscME31NSimHits->Fill(b_ME31NSimHits);
-    if (b_ME41NSimHits != 0) h_cscME41NSimHits->Fill(b_ME41NSimHits);
-    if (b_RE31NSimHits != 0) h_rpcME31NSimHits->Fill(b_RE31NSimHits);
-    if (b_RE41NSimHits != 0) h_rpcME41NSimHits->Fill(b_RE41NSimHits);
-
     if (bx_ME31NDigis != 0) h_ME31NDigis0->Fill(bx_ME31NDigis);
     if (bx_ME41NDigis != 0) h_ME41NDigis0->Fill(bx_ME41NDigis);
     */
 
   }//CSCChamber loop
 
-  h_NRecHits->Fill(nRPC);
+  h_RPCNRecHits->Fill(nRPC);
   for(int i=0; i<6; i++){
     unsigned int tmp = 0;
     for(int j=0; j<5; j++) tmp += b_RPCNRecHits[i][j];
-    h_RBNRecHits[i]->Fill(tmp);
+    h_RPCBNRecHits[i]->Fill(tmp);
   }
   for(int j=0; j<5; j++){
     unsigned int tmp = 0;
     for(int i=0; i<6; i++) tmp += b_RPCNRecHits[i][j];
-    h_WNRecHits[j]->Fill(tmp);
+    h_RPCWNRecHits[j]->Fill(tmp);
   }
 
   tree->Fill();
@@ -729,8 +786,8 @@ DTRPCTiming::endJob()
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
       }
-      h_simValidMBx[i]->SetBinContent(k+1,tmp1/tmp3*100);
-      h_simValidMBy[i]->SetBinContent(k+1,tmp2/tmp3*100);
+      h_DTBsimValidx[i]->SetBinContent(k+1,tmp1/tmp3*100);
+      h_DTBsimValidy[i]->SetBinContent(k+1,tmp2/tmp3*100);
     }
     for(int j=0; j<5; j++){
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
@@ -739,8 +796,8 @@ DTRPCTiming::endJob()
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
       }
-      h_simValidWx[j]->SetBinContent(k+1,tmp1/tmp3*100);
-      h_simValidWy[j]->SetBinContent(k+1,tmp2/tmp3*100);
+      h_DTWsimValidx[j]->SetBinContent(k+1,tmp1/tmp3*100);
+      h_DTWsimValidy[j]->SetBinContent(k+1,tmp2/tmp3*100);
     }
   }
 }

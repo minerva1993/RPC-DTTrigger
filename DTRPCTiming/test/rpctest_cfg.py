@@ -46,10 +46,9 @@ process.source = cms.Source("PoolSource",
 )
 
 process.rpcntupler = cms.EDAnalyzer("DTRPCTiming",
-#  rpcRecHits = cms.InputTag('rpcRecHits'),
-#  simMuonRPCDigis = cms.InputTag('simMuonRPCDigis'),
   DTsimHitLabel = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
   simMuonRPCDigis = cms.InputTag('rpcRecHits'),
+  rpcSimLinkLabel = cms.InputTag('simMuonRPCDigis','RPCDigiSimLink'),
   dt4DSegments = cms.InputTag('dt4DSegments'),
   label = cms.untracked.int32(options.Labels)#Needs for sim val. calculation
 )

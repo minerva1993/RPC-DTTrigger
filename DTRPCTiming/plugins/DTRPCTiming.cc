@@ -78,6 +78,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *h_RPCWNRecHits[5]; //Wheel
     TH2D *h_RPCSWNRecHits;
     TH1D *h_RPCTimeRes;
+    TH1D *h_RPCNonMuTimeRes;
 
     //N simHit per digi; in 1 digi case, count numbers in same chamber
     TH1D *h_NSPD;
@@ -256,6 +257,10 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCTimeRes = fs->make<TH1D>("h_RPCTimeRes", "RPC time residual (TOF-time)", 50, 0, 50);
   h_RPCTimeRes->GetXaxis()->SetTitle("Time residual");
   h_RPCTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
+  h_RPCNonMuTimeRes = fs->make<TH1D>("h_RPCNonMuTimeRes", "RPC time residual for non-muon simhits(TOF-time)", 50, 0, 50);
+  h_RPCNonMuTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCNonMuTimeRes->GetYaxis()->SetTitle("Number of rechits");
 
   h_RPCNRecHits = fs->make<TH1D>("h_RPCNRecHits", "", 10, 0, 10);
   h_RPCNRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
@@ -440,7 +445,14 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     }
     if(!links.empty()){
       //cout << links.begin()->getTimeOfFlight() << " ";
-      h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+      if(abs(links.begin()->getParticleType()) != 13){
+        h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+      }
+      else{
+        //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
+        if(links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() >15) continue;
+        h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+      }
     }
   }
 

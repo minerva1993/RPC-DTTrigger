@@ -73,6 +73,9 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *h_WNRecHits[5]; //Wheel
     TH2D *h_SWNRecHits;
 
+    //N simHit per digi; in 1 digi case, count numbers in same chamber
+    TH1D *h_NSPD;
+
     //No Bx=0 histos / simHit multiplicity now
 
     unsigned int b_EVENT, b_RUN, b_LUMI;
@@ -271,6 +274,10 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_SWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
   h_SWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
 
+  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 30, 0, 30);
+  h_NSPD->GetXaxis()->SetTitle("Number of simHit");
+  h_NSPD->GetYaxis()->SetTitle("Number of digi (segment)");
+
 /*
   h_xNMatchedME31 = fs->make<TH1D>("h_xNMatchedME31", "Matching Efficiency in ME3/1", 25, 0, 25);
   h_xNMatchedME31->GetXaxis()->SetTitle("X cutoff (cm)");
@@ -457,6 +464,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
+      int NSPD = 0;
       for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
 
         cptype = DTsimIt->particleType();
@@ -469,8 +477,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
 
           //cout << "I'm the same" << endl;
-
-          if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
+          NSPD++;
+          dt_simmatched = true; //Check only if the segment has a simHit in the same chamber
+          //if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
   
           float sDx = abs(dt_lp.x() - lp_dtsim.x());
           float sDy = abs(dt_lp.y() - lp_dtsim.y());
@@ -481,6 +490,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
+      h_NSPD->Fill(NSPD);
+
       for(int i=0; i<4; i++){
         for(int j=0; j < 5; j++){
           for(int k=0; k < 100; k++){
@@ -490,7 +501,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
-      if (!dt_simmatched && abs(cptype) != 13) continue;
+      //if (!dt_simmatched && abs(cptype) != 13) continue;
+      if (!dt_simmatched) continue;
       /*
       double xslope = gp_cscint.x()/gp_cscint.z();
       double yslope = gp_cscint.y()/gp_cscint.z();

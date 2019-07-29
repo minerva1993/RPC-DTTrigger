@@ -89,15 +89,15 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *h_DTBsimValidy[4];
     TH1D *h_DTWsimValidx[5];
     TH1D *h_DTWsimValidy[5];
-/*
-    TH1D *h_xNMatchedME31;
-    TH1D *h_xNMatchedME41;
 
-    TH1D *h_yNMatchedME31;
-    TH1D *h_yNMatchedME41;
+    TH1D *h_xNMatchedB[4];
+    TH1D *h_yNMatchedB[4];
+    TH1D *h_xNMatchedW[5];
+    TH1D *h_yNMatchedW[5];
+
+/*
     TH2D *h_MatchedME31;
     TH2D *h_MatchedME41;
-
     TH2D *h_RatioME31;
     TH2D *h_RatioME41;
 */
@@ -132,13 +132,11 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     double sDTy[4][5][100];
     bool DTisValidx[4][5][100];
     bool DTisValidy[4][5][100];
-/*
-    double ME31[25][25];
-    double ME41[25][25];
+    bool isMatchx[4][5][25];
+    bool isMatchy[4][5][25];
+    double DTMatchedx[4][5][25];
+    double DTMatchedy[4][5][25];
 
-    bool isMatchME31[25][25];
-    bool isMatchME41[25][25];
-*/
     int EventNum;
     int label_;
     int numDigi_switch;
@@ -221,6 +219,14 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTBsimValidy[i] = fs->make<TH1D>(Form("h_DTMB%isimValidy",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
     h_DTBsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTBsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_xNMatchedB[i] = fs->make<TH1D>(Form("h_xNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 25, 0, 25);
+    h_xNMatchedB[i]->GetXaxis()->SetTitle("X cutoff (cm)");
+    h_xNMatchedB[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_yNMatchedB[i] = fs->make<TH1D>(Form("h_yNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 25, 0, 25);
+    h_yNMatchedB[i]->GetXaxis()->SetTitle("Y cutoff (cm)");
+    h_yNMatchedB[i]->GetYaxis()->SetTitle("Matched (%)");
   }
   for(int i=0; i<5; i++){
     h_DTWNDigis[i] = fs->make<TH1D>(Form("h_DTW%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
@@ -235,9 +241,17 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTWsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_DTWsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_DTWsimValidy[i] = fs->make<TH1D>(Form("h_DTW%isimValidWy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_DTWsimValidy[i] = fs->make<TH1D>(Form("h_DTW%isimValidy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
     h_DTWsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTWsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_xNMatchedW[i] = fs->make<TH1D>(Form("h_xNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 25, 0, 25);
+    h_xNMatchedW[i]->GetXaxis()->SetTitle("X cutoff (cm)");
+    h_xNMatchedW[i]->GetYaxis()->SetTitle("Matched (%)");
+
+    h_yNMatchedW[i] = fs->make<TH1D>(Form("h_yNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 25, 0, 25);
+    h_yNMatchedW[i]->GetXaxis()->SetTitle("Y cutoff (cm)");
+    h_yNMatchedW[i]->GetYaxis()->SetTitle("Matched (%)");
   }
 
   h_DTSWNDigis = fs->make<TH2D>("h_DTSWNDigis", "Number of digi per chamber", 4, 0.5, 4.5, 5, -2.5, 2.5);
@@ -301,27 +315,11 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
 
-  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 20, 0, 20);
+  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 40, 0, 40);
   h_NSPD->GetXaxis()->SetTitle("Number of simHit");
   h_NSPD->GetYaxis()->SetTitle("Number of digi (segment)");
 
 /*
-  h_xNMatchedME31 = fs->make<TH1D>("h_xNMatchedME31", "Matching Efficiency in ME3/1", 25, 0, 25);
-  h_xNMatchedME31->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_xNMatchedME31->GetYaxis()->SetTitle("Matched (%)");
-
-  h_xNMatchedME41 = fs->make<TH1D>("h_xNMatchedME41", "Matching Efficiency in ME4/1", 25, 0, 25);
-  h_xNMatchedME41->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_xNMatchedME41->GetYaxis()->SetTitle("Matched (%)");
-
-  h_yNMatchedME31 = fs->make<TH1D>("h_yNMatchedME31", "Matching Efficiency in ME3/1", 25, 0, 25);
-  h_yNMatchedME31->GetXaxis()->SetTitle("Y cutoff (cm)");
-  h_yNMatchedME31->GetYaxis()->SetTitle("Matched (%)");
-
-  h_yNMatchedME41 = fs->make<TH1D>("h_yNMatchedME41", "Matching Efficiency in ME4/1", 25, 0, 25);
-  h_yNMatchedME41->GetXaxis()->SetTitle("Y cutoff (cm)");
-  h_yNMatchedME41->GetYaxis()->SetTitle("Matched (%)");
-
   h_MatchedME31 = fs->make<TH2D>("h_MatchedME31", "Matching efficiency in ME31", 25, 0, 25, 25, 0, 25);
   h_MatchedME31->GetXaxis()->SetTitle("X cutoff (cm)");
   h_MatchedME31->GetYaxis()->SetTitle("Y cutoff (cm)");
@@ -518,6 +516,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       pure_DTNDigis_Total[idxDTStation][idxDTWheel]++;
 
       const LocalPoint& dt_lp = tmpseg.localPosition();
+      const LocalVector& dt_dir = tmpseg.localDirection();
+      //For now no pos/dir error included
       int cptype = 0;
       bool dt_simmatched = false;
 
@@ -534,7 +534,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
 
         cptype = DTsimIt->particleType();
-        //const GlobalPoint sim_gp = cscGeo->idToDet(csc_id)->surface().toGlobal(CSCsimIt->localPosition());
+        //const GlobalPoint sim_gp = dtGeo->idToDet(dt_id)->surface().toGlobal(DTsimIt->localPosition());
         const LocalPoint lp_dtsim = DTsimIt->localPosition();
         DTChamberId dtsim_id = DTsimIt->detUnitId();
 
@@ -559,32 +559,25 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       h_NSPD->Fill(NSPD);
 
       for(int i=0; i<4; i++){
-        for(int j=0; j < 5; j++){
-          for(int k=0; k < 100; k++){
+        for(int j=0; j<5; j++){
+          for(int k=0; k<100; k++){
             if(DTisValidx[i][j][k]) sDTx[i][j][k]++;
             if(DTisValidy[i][j][k]) sDTy[i][j][k]++;
+            if(k < 25){
+              isMatchx[i][j][k] = false;
+              isMatchy[i][j][k] = false;
+            }
           }
         }
       }
 
       //if (!dt_simmatched && abs(cptype) != 13) continue;
       if (!dt_simmatched) continue;
-      /*
-      double xslope = gp_cscint.x()/gp_cscint.z();
-      double yslope = gp_cscint.y()/gp_cscint.z();
-      */
 
       //No sim match, should be same as pure_*, no bx for now
       h_DTSWNDigis->Fill(dt_id.station(), dt_id.wheel(), 1);
       b_DTNDigis_Total[idxDTStation][idxDTWheel]++;
       b_DTNDigis[idxDTStation][idxDTWheel]++;
-      /*
-      for (int i=0; i<25; i++){
-        for (int j=0; j<25; j++){
-          isMatchME31[i][j] = false;
-          isMatchME41[i][j] = false;
-        }
-      }
 
       for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
 
@@ -594,13 +587,16 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         GlobalPoint gp_rpc(0.0,0.0,0.0);
         gp_rpc = getRPCGlobalPosition(rpc_id, *rpcIt);
 
-        if (gp_rpc.z() * gp_cscint.z() < 0 ) continue;
+        //if (gp_rpc.z() * gp_dt.z() < 0 ) continue; //In W0, this can be negative!
 
-        double dz = gp_rpc.z() - gp_cscint.z();
-        double dx = dz*xslope;
-        double dy = dz*yslope;
+        float Xo = dt_lp.x();
+        float Yo = dt_lp.y();
+        float Zo = dt_lp.z();
+        float dx = dt_dir.x();
+        float dy = dt_dir.y();
+        float dz = dt_dir.z();
 
-        GlobalPoint gp_transcsc(gp_cscint.x()+dx, gp_cscint.y()+dy, gp_rpc.z());
+        GlobalPoint gp_transcsc(Xo+dx, Yo+dy, gp_rpc.z());
         LocalPoint lp_extrapol = rpcGeo->idToDet(rpc_id)->surface().toLocal(gp_transcsc);
 
         //local distance
@@ -609,36 +605,21 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         float Dx = abs(lp_rpc.x() - lp_extrapol.x());
         float Dy = abs(lp_rpc.y() - lp_extrapol.y());
 
-        //global distance
-//        float Dx = abs(gp_rpc.x()-gp_cscint.x());
-//        float Dy = abs(gp_rpc.y()-gp_cscint.y());
-
-        if (csc_id.station() == 3 && csc_id.ring() == 1 && rpc_id.station() == 3 && rpc_id.ring() == 1){
-          for (int i = 0; i < 25; i++){
-            for (int j = 0; j < 25; j++){
-              if (Dx < i+1 && Dy < j+1) isMatchME31[i][j] = true;
-            }
-          }
-        }
-        if (csc_id.station() == 4 && csc_id.ring() == 1 && rpc_id.station() == 4 && rpc_id.ring() == 1){
-          for (int i = 0; i < 25; i++){
-            for (int j = 0; j < 25; j++){
-              if (Dx < i+1 && Dy < j+1) isMatchME41[i][j] = true;
-            }
-          }
+        for (int k=0; k<25; k++){
+          if (Dx < k+1) isMatchx[idxDTStation][idxDTWheel][k] = true;
+          if (Dy < k+1) isMatchy[idxDTStation][idxDTWheel][k] = true;
         }
 
       }//RPCRecHit loop
 
-      for (int i = 0; i < 25; i++){
-        for (int j = 0; j < 25; j++){
-         
-          if (isMatchME31[i][j]) ME31[i][j]++;
-          if (isMatchME41[i][j]) ME41[i][j]++;
-          
+      for (int i=0; i<4; i++){
+        for(int j=0; j<5; j++){
+          for (int k=0; k<25; k++){
+            if (isMatchx[i][j][k]) DTMatchedx[i][j][k]++;
+            if (isMatchy[i][j][k]) DTMatchedy[i][j][k]++;
+          }
         }
       }
-      */
     }//CSCLCT loop
 
     for(int i=0; i<4; i++){
@@ -729,39 +710,23 @@ DTRPCTiming::beginJob()
       b_DTNDigis_Total[i][j]=0;
       pure_DTNDigis_Total[i][j]=0;
 
-      for(int k=0; k < 100; k++){
+      for(int k=0; k<100; k++){
         sDTx[i][j][k] = 0;
         sDTy[i][j][k] = 0;
+
+        if(k<25){
+          DTMatchedx[i][j][k] = 0;
+          DTMatchedy[i][j][k] = 0;
+        }
       }
     }
   }
-/*
-  for (int i=0; i<25; i++){
-    for (int j=0; j<25; j++){
-      ME31[i][j] = 0;
-      ME41[i][j] = 0;
-    }
-  }
-*/
 }
 
 void 
-DTRPCTiming::endJob() 
-{
+DTRPCTiming::endJob(){
+
 /*
-  if (b_ME31NDigis_Total != 0){
-    for (int i=0; i<25; i++){
-      h_xNMatchedME31->SetBinContent(i+1, ME31[i][24]/b_ME31NDigis_Total*100);
-      h_xNMatchedME41->SetBinContent(i+1, ME41[i][24]/b_ME41NDigis_Total*100);
-    }
-  }
-  if (b_ME41NDigis_Total != 0){
-    for (int j=0; j< 25; j++){
-      h_yNMatchedME31->SetBinContent(j+1, ME31[24][j]/b_ME31NDigis_Total*100);
-      h_yNMatchedME41->SetBinContent(j+1, ME41[24][j]/b_ME41NDigis_Total*100);
-    }
-  }
-    
   if (b_ME31NDigis_Total != 0 && b_ME41NDigis_Total != 0){
     for (int i=0; i<25; i++){
       for (int j=0; j<25; j++){
@@ -770,16 +735,17 @@ DTRPCTiming::endJob()
       }
     } 
   }
-
-  tree->Fill();  
-
+*/
+  //tree->Fill();  
+/*
   cout << "Including simhit" << endl;
   cout << "matched ratio at 13cm * 9cm ME31 " << ME31[12][8]/b_ME31NDigis_Total*100 << endl;
   cout << "matched ratio at 13cm * 9cm ME41 " << ME41[12][8]/b_ME41NDigis_Total*100 << endl;
 
   cout << "\nPure Total # of Digis: ME31 " << pure_ME31NDigis_Total << ":: ME41 " << pure_ME41NDigis_Total << endl;
   cout << "simmatching Total # of Digis: ME31 " << b_ME31NDigis_Total << ":: ME41 " << b_ME41NDigis_Total << endl;
-
+*/
+/*
   if (pure_ME31NDigis_Total != 0 && pure_ME41NDigis_Total != 0){
     for (int i=0; i<25; i++){
       for (int j=0; j<25; j++){
@@ -793,23 +759,43 @@ DTRPCTiming::endJob()
     //sim validation
     for(int i=0; i<4; i++){
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
+      double tmp4 = 0; double tmp5 = 0; double tmp6 = 0;
       for(int j=0; j<5; j++){
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
+        if(k<25){
+          tmp4 += DTMatchedx[i][j][k];
+          tmp5 += DTMatchedy[i][j][k];
+          tmp6 += b_DTNDigis_Total[i][j];
+        }
       }
-      h_DTBsimValidx[i]->SetBinContent(k+1,tmp1/tmp3*100);
-      h_DTBsimValidy[i]->SetBinContent(k+1,tmp2/tmp3*100);
+      h_DTBsimValidx[i]->SetBinContent(k+1, 100*tmp1/tmp3);
+      h_DTBsimValidy[i]->SetBinContent(k+1, 100*tmp2/tmp3);
+      if(k<25){
+        h_xNMatchedB[i]->SetBinContent(k+1, 100*tmp4/tmp6);
+        h_yNMatchedB[i]->SetBinContent(k+1, 100*tmp5/tmp6);
+      }
     }
     for(int j=0; j<5; j++){
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
+      double tmp4 = 0; double tmp5 = 0; double tmp6 = 0;
       for(int i=0; i<4; i++){
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
+        if(k<25){
+          tmp4 += DTMatchedx[i][j][k];
+          tmp5 += DTMatchedy[i][j][k];
+          tmp6 += b_DTNDigis_Total[i][j];
+        }
       }
-      h_DTWsimValidx[j]->SetBinContent(k+1,tmp1/tmp3*100);
-      h_DTWsimValidy[j]->SetBinContent(k+1,tmp2/tmp3*100);
+      h_DTWsimValidx[j]->SetBinContent(k+1, 100*tmp1/tmp3);
+      h_DTWsimValidy[j]->SetBinContent(k+1, 100*tmp2/tmp3);
+      if(k<25){
+        h_xNMatchedW[j]->SetBinContent(k+1, 100*tmp4/tmp6);
+        h_yNMatchedW[j]->SetBinContent(k+1, 100*tmp5/tmp6);
+      }
     }
   }
 }

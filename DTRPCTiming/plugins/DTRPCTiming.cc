@@ -203,12 +203,12 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   EventInfo->GetXaxis()->SetBinLabel(2,"Selected Number of Events");
 
   //DT
-  for(int i=0; i<4; i++){
+  for (int i=0; i<4; i++) {
     h_DTBNDigis[i] = fs->make<TH1D>(Form("h_DTMB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
     h_DTBNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
     h_DTBNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_DTBNSimHits[i] = fs->make<TH1D>(Form("h_DTMB%iNSimHits",i+1), Form("Number of DT simhit per chamber (MB%i)",i+1), 10, 0, 10);
+    h_DTBNSimHits[i] = fs->make<TH1D>(Form("h_DTMB%iNSimHits",i+1), Form("Number of DT simhit per chamber (MB%i)",i+1), 20, 0, 20);
     h_DTBNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
     h_DTBNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
 
@@ -228,12 +228,12 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_yNMatchedB[i]->GetXaxis()->SetTitle("Y cutoff (cm)");
     h_yNMatchedB[i]->GetYaxis()->SetTitle("Matched (%)");
   }
-  for(int i=0; i<5; i++){
+  for (int i=0; i<5; i++) {
     h_DTWNDigis[i] = fs->make<TH1D>(Form("h_DTW%iNDigis",i-2), Form("Number of digi per chamber (W%i)",i-2), 10, 0, 10);
     h_DTWNDigis[i]->GetXaxis()->SetTitle("Number of digi per chamber");
     h_DTWNDigis[i]->GetYaxis()->SetTitle("Number of chamber");
 
-    h_DTWNSimHits[i] = fs->make<TH1D>(Form("h_DTW%iNSimHits",i-2), Form("Number of DT simhit per chamber (W%i)",i-2), 10, 0, 10);
+    h_DTWNSimHits[i] = fs->make<TH1D>(Form("h_DTW%iNSimHits",i-2), Form("Number of DT simhit per chamber (W%i)",i-2), 20, 0, 20);
     h_DTWNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
     h_DTWNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
 
@@ -280,7 +280,7 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCNRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
   h_RPCNRecHits->GetYaxis()->SetTitle("Number of chamber");
 
-  for(int i=0; i<6; i++){
+  for (int i=0; i<6; i++) {
     const char* inout = "";
     int st = 0;
     if(i < 4){
@@ -295,7 +295,7 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_RPCBNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
     h_RPCBNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
   }
-  for(int i=0; i<5; i++){
+  for (int i=0; i<5; i++) {
     h_RPCWNRecHits[i] = fs->make<TH1D>(Form("h_RPCW%iNRecHits",i-2), Form("Number of rechit per chamber (W%i)",i-2), 10, 0, 10);
     h_RPCWNRecHits[i]->GetXaxis()->SetTitle("Number of rechit per chamber");
     h_RPCWNRecHits[i]->GetYaxis()->SetTitle("Number of chamber");
@@ -375,7 +375,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   //cout << "\nNew event" << endl;
   b_EVENT = b_RUN = b_LUMI = 0;
-
   b_EVENT  = iEvent.id().event();
   b_RUN    = iEvent.id().run();
   b_LUMI   = iEvent.id().luminosityBlock();
@@ -384,11 +383,11 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   //cout << "Event " << EventNum << endl;
 
   nRPC = nDT = 0;
-  for(int i=0; i<6; i++){
-    for(int j=0; j<5; j++) b_RPCNRecHits[i][j]=0;
+  for (int i=0; i<6; i++) {
+    for (int j=0; j<5; j++) b_RPCNRecHits[i][j]=0;
   }
-  for(int i=0; i<4; i++){
-    for(int j=0; j<5; j++) b_DTNSimHits[i][j]=0;
+  for (int i=0; i<4; i++) {
+    for (int j=0; j<5; j++) b_DTNSimHits[i][j]=0;
   }
 
   //to check rechit info
@@ -404,7 +403,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     nRPC++;
     int idxRPCRing = rpc_id.ring() + 2; //0~4
     int idxRPCStation = -1;
-    if(rpc_id.station() <= 2) idxRPCStation = (rpc_id.station()-1)*(rpc_id.station()) + (rpc_id.layer()-1); //0~3
+    if (rpc_id.station() <= 2) idxRPCStation = (rpc_id.station()-1)*(rpc_id.station()) + (rpc_id.layer()-1); //0~3
     else idxRPCStation = rpc_id.station() + 1; 
 
     h_RPCSWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
@@ -433,22 +432,22 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
-      if(links.empty()) cout << "Unmatched simHit!" << endl;
+      if (links.empty()) cout << "Unmatched simHit!" << endl;
 
-      for(std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink){
+      for (std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink) {
         SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
-        if(find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
+        if (find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
       }
       //cout << matched.size() << " ";
     }
-    if(!links.empty()){
+    if (!links.empty()) {
       //cout << links.begin()->getTimeOfFlight() << " ";
-      if(abs(links.begin()->getParticleType()) != 13){
+      if (abs(links.begin()->getParticleType()) != 13) {
         h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
       }
-      else{
+      else {
         //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
-        if(links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() >15) continue;
+        if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
         h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
       }
     }
@@ -458,7 +457,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   PSimHitContainer::const_iterator DTsimIt;
   for (DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
     DTChamberId dt_simId = DTsimIt->detUnitId();
-    if(dt_simId.station() == 4) continue; //No theta layer in MB4
+    if (dt_simId.station() == 4) continue; //No theta layer in MB4
     //cout << dt_simId << "/";
     b_ptype = DTsimIt->particleType();
     //cout << "ptype :: " << b_ptype << endl;
@@ -478,11 +477,11 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   //Ref of loop: https://github.com/cms-sw/cmssw/blob/266e21cfc9eb409b093e4cf064f4c0a24c6ac293/RecoLocalMuon/DTSegment/src/DTSegment4DT0Corrector.cc
   DTRecSegment4DCollection::id_iterator dtChamberId;
-  for(dtChamberId = all4DSegments->id_begin(); dtChamberId != all4DSegments->id_end(); ++dtChamberId) {
+  for (dtChamberId = all4DSegments->id_begin(); dtChamberId != all4DSegments->id_end(); ++dtChamberId) {
 
     nDT++;
-    for(int i=0; i<4; i++){
-      for(int j=0; j<5; j++) b_DTNDigis[i][j]=0;
+    for (int i=0; i<4; i++) {
+      for (int j=0; j<5; j++) b_DTNDigis[i][j]=0;
     }
     //bx_ME31NDigis = bx_ME41NDigis =0;
     //b_cscBX = b_rpcBX = 0;
@@ -497,11 +496,13 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       dtRange.first--;
     }
 
-    for(DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment){
+    for (DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment) {
+
+      //cout << "new segment" << endl;
 
       DTRecSegment4D tmpseg = *dtSegment;
-      if(!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
-      if(dtSegment->dimension() != 4) continue; //Check needed //MB4 doesn't have theta superlayer
+      if (!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
+      if (dtSegment->dimension() != 4) continue; //Check needed //MB4 doesn't have theta superlayer
       const DTChamberId dt_id = dtSegment->chamberId();
       int idxDTStation = dt_id.station()-1;
       int idxDTWheel = dt_id.wheel() + 2;
@@ -509,9 +510,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       gp_dt = GlobalPoint(0.0,0.0,0.0);
       gp_dt = getDTGlobalPosition(dt_id, tmpseg);
-      if(abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
-
-      float Zo = gp_dt.z();
+      if (abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
 
       pure_DTNDigis_Total[idxDTStation][idxDTWheel]++;
 
@@ -521,9 +520,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       int cptype = 0;
       bool dt_simmatched = false;
 
-      for(int i=0; i<4; i++){
-        for(int j=0; j < 5; j++){
-          for(int k=0; k < 100; k++){
+      for (int i=0; i<4; i++) {
+        for (int j=0; j < 5; j++) {
+          for (int k=0; k < 100; k++) {
             DTisValidx[i][j][k] = false;
             DTisValidy[i][j][k] = false;
           }
@@ -542,13 +541,27 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         if (abs(cptype) != 13) continue;
         if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
 
+          DTSuperLayerId dt_slID(DTsimIt->detUnitId());
+          //cout << dt_slID.superlayer() << endl;
+          int superlayer = dt_slID.superlayer();
+
           //cout << "I'm the same" << endl;
           NSPD++;
           dt_simmatched = true; //Check only if the segment has a simHit in the same chamber
           //if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
-  
-          float sDx = abs(dt_lp.x() - lp_dtsim.x());
-          float sDy = abs(dt_lp.y() - lp_dtsim.y());
+
+          float sDx = 0;
+          float sDy = 0;
+          if (superlayer == 2) {
+            sDx = abs(dt_lp.x() - lp_dtsim.y());//x-y inverted in theta layer
+            sDy = abs(dt_lp.y() + lp_dtsim.x());
+            //cout << dt_lp.x() << " " << lp_dtsim.y() << " " << dt_lp.y() << " " << lp_dtsim.x() << endl;
+          }
+          else {
+            sDx = abs(dt_lp.x() - lp_dtsim.x());
+            sDy = abs(dt_lp.y() - lp_dtsim.y());
+            //cout << dt_lp.x() << " " << lp_dtsim.x() << " " << dt_lp.y() << " " << lp_dtsim.y() << endl;
+          }
           for (int k=0; k<100; k++) {
             if (sDx < k/100.) DTisValidx[idxDTStation][idxDTWheel][k] = true;
             if (sDy < k/100.) DTisValidy[idxDTStation][idxDTWheel][k] = true;
@@ -558,12 +571,12 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       h_NSPD->Fill(NSPD);
 
-      for(int i=0; i<4; i++){
-        for(int j=0; j<5; j++){
-          for(int k=0; k<100; k++){
-            if(DTisValidx[i][j][k]) sDTx[i][j][k]++;
-            if(DTisValidy[i][j][k]) sDTy[i][j][k]++;
-            if(k < 25){
+      for (int i=0; i<4; i++) {
+        for (int j=0; j<5; j++) {
+          for (int k=0; k<100; k++) {
+            if (DTisValidx[i][j][k]) sDTx[i][j][k]++;
+            if (DTisValidy[i][j][k]) sDTy[i][j][k]++;
+            if (k < 25) {
               isMatchx[i][j][k] = false;
               isMatchy[i][j][k] = false;
             }
@@ -612,9 +625,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       }//RPCRecHit loop
 
-      for (int i=0; i<4; i++){
-        for(int j=0; j<5; j++){
-          for (int k=0; k<25; k++){
+      for (int i=0; i<4; i++) {
+        for (int j=0; j<5; j++) {
+          for (int k=0; k<25; k++) {
             if (isMatchx[i][j][k]) DTMatchedx[i][j][k]++;
             if (isMatchy[i][j][k]) DTMatchedy[i][j][k]++;
           }
@@ -622,23 +635,23 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       }
     }//CSCLCT loop
 
-    for(int i=0; i<4; i++){
-      double tmp1 = 0; unsigned int tmp2 = 0;
-      for(int j=0; j<5; j++){
+    for (int i=0; i<4; i++) {
+      double tmp1 = 0; double tmp2 = 0;
+      for (int j=0; j<5; j++) {
         tmp1 += b_DTNDigis[i][j];
         tmp2 += b_DTNSimHits[i][j];
       }
       h_DTBNDigis[i]->Fill(tmp1);
-      h_DTBNSimHits[i]->Fill(tmp2);
+      if (tmp2 > 0) h_DTBNSimHits[i]->Fill(tmp2);
     }
-    for(int j=0; j<5; j++){
-      double tmp1 = 0; unsigned int tmp2 = 0;
-      for(int i=0; i<4; i++){
+    for (int j=0; j<5; j++) {
+      double tmp1 = 0; double tmp2 = 0;
+      for (int i=0; i<4; i++) {
         tmp1 += b_DTNDigis[i][j];
         tmp2 += b_DTNSimHits[i][j];
       }
       h_DTWNDigis[j]->Fill(tmp1);
-      h_DTWNSimHits[j]->Fill(tmp2);
+      if (tmp2 > 0) h_DTWNSimHits[j]->Fill(tmp2);
     }
     /*
     if (bx_ME31NDigis != 0) h_ME31NDigis0->Fill(bx_ME31NDigis);
@@ -648,14 +661,14 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
   }//CSCChamber loop
 
   h_RPCNRecHits->Fill(nRPC);
-  for(int i=0; i<6; i++){
-    unsigned int tmp = 0;
-    for(int j=0; j<5; j++) tmp += b_RPCNRecHits[i][j];
+  for (int i=0; i<6; i++) {
+    double tmp = 0;
+    for (int j=0; j<5; j++) tmp += b_RPCNRecHits[i][j];
     h_RPCBNRecHits[i]->Fill(tmp);
   }
-  for(int j=0; j<5; j++){
-    unsigned int tmp = 0;
-    for(int i=0; i<6; i++) tmp += b_RPCNRecHits[i][j];
+  for (int j=0; j<5; j++) {
+    double tmp = 0;
+    for (int i=0; i<6; i++) tmp += b_RPCNRecHits[i][j];
     h_RPCWNRecHits[j]->Fill(tmp);
   }
 
@@ -705,16 +718,16 @@ DTRPCTiming::beginJob()
 
   tree->Branch("ptype" , &b_ptype , "ptype/i");
 */
-  for(int i=0; i<4; i++){
-    for(int j=0; j<5; j++){
+  for (int i=0; i<4; i++) {
+    for (int j=0; j<5; j++) {
       b_DTNDigis_Total[i][j]=0;
       pure_DTNDigis_Total[i][j]=0;
 
-      for(int k=0; k<100; k++){
+      for (int k=0; k<100; k++) {
         sDTx[i][j][k] = 0;
         sDTy[i][j][k] = 0;
 
-        if(k<25){
+        if (k < 25) {
           DTMatchedx[i][j][k] = 0;
           DTMatchedy[i][j][k] = 0;
         }
@@ -726,7 +739,7 @@ DTRPCTiming::beginJob()
 void 
 DTRPCTiming::endJob(){
 
-/*
+  /*
   if (b_ME31NDigis_Total != 0 && b_ME41NDigis_Total != 0){
     for (int i=0; i<25; i++){
       for (int j=0; j<25; j++){
@@ -735,17 +748,17 @@ DTRPCTiming::endJob(){
       }
     } 
   }
-*/
+
   //tree->Fill();  
-/*
+
   cout << "Including simhit" << endl;
   cout << "matched ratio at 13cm * 9cm ME31 " << ME31[12][8]/b_ME31NDigis_Total*100 << endl;
   cout << "matched ratio at 13cm * 9cm ME41 " << ME41[12][8]/b_ME41NDigis_Total*100 << endl;
 
   cout << "\nPure Total # of Digis: ME31 " << pure_ME31NDigis_Total << ":: ME41 " << pure_ME41NDigis_Total << endl;
   cout << "simmatching Total # of Digis: ME31 " << b_ME31NDigis_Total << ":: ME41 " << b_ME41NDigis_Total << endl;
-*/
-/*
+
+
   if (pure_ME31NDigis_Total != 0 && pure_ME41NDigis_Total != 0){
     for (int i=0; i<25; i++){
       for (int j=0; j<25; j++){
@@ -754,45 +767,50 @@ DTRPCTiming::endJob(){
       }
     }
   }
-*/
-  for (int k=0; k<100; k++){
+  */
+
+  for (int k=0; k<100; k++) {
     //sim validation
-    for(int i=0; i<4; i++){
+    for (int i=0; i<4; i++) {
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
       double tmp4 = 0; double tmp5 = 0; double tmp6 = 0;
-      for(int j=0; j<5; j++){
+      for (int j=0; j<5; j++) {
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
-        if(k<25){
+        if (k < 25) {
           tmp4 += DTMatchedx[i][j][k];
           tmp5 += DTMatchedy[i][j][k];
           tmp6 += b_DTNDigis_Total[i][j];
         }
       }
-      h_DTBsimValidx[i]->SetBinContent(k+1, 100*tmp1/tmp3);
-      h_DTBsimValidy[i]->SetBinContent(k+1, 100*tmp2/tmp3);
-      if(k<25){
+      if (tmp3 > 0) {
+        h_DTBsimValidx[i]->SetBinContent(k+1, 100*tmp1/tmp3);
+        h_DTBsimValidy[i]->SetBinContent(k+1, 100*tmp2/tmp3);
+      }
+      if (k < 25 and tmp6 >0) {
         h_xNMatchedB[i]->SetBinContent(k+1, 100*tmp4/tmp6);
         h_yNMatchedB[i]->SetBinContent(k+1, 100*tmp5/tmp6);
       }
     }
-    for(int j=0; j<5; j++){
+    for (int j=0; j<5; j++) {
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;
       double tmp4 = 0; double tmp5 = 0; double tmp6 = 0;
-      for(int i=0; i<4; i++){
+      for (int i=0; i<4; i++) {
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
-        if(k<25){
+        if (k < 25) {
           tmp4 += DTMatchedx[i][j][k];
           tmp5 += DTMatchedy[i][j][k];
           tmp6 += b_DTNDigis_Total[i][j];
         }
       }
-      h_DTWsimValidx[j]->SetBinContent(k+1, 100*tmp1/tmp3);
-      h_DTWsimValidy[j]->SetBinContent(k+1, 100*tmp2/tmp3);
-      if(k<25){
+      if (tmp3 > 0) {
+        h_DTWsimValidx[j]->SetBinContent(k+1, 100*tmp1/tmp3);
+        h_DTWsimValidy[j]->SetBinContent(k+1, 100*tmp2/tmp3);
+      }
+      if (k < 25 and tmp6 > 0) {
         h_xNMatchedW[j]->SetBinContent(k+1, 100*tmp4/tmp6);
         h_yNMatchedW[j]->SetBinContent(k+1, 100*tmp5/tmp6);
       }

@@ -71,6 +71,8 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *h_DTBNSimHits[4];
     TH1D *h_DTWNSimHits[5];
     TH2D *h_DTSWNSimHits;
+    TH1D *h_DTBNSPD[4];
+    TH1D *h_DTWNSPD[5];
 
     //RPC
     TH1D *h_RPCNRecHits;
@@ -81,7 +83,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH1D *h_RPCNonMuTimeRes;
 
     //N simHit per digi; in 1 digi case, count numbers in same chamber
-    TH1D *h_NSPD;
+    TH1D *h_NSPDall;
 
     //No Bx=0 histos / simHit multiplicity now
 
@@ -112,6 +114,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     double b_DTNDigis_Total[4][5];
     double pure_DTNDigis_Total[4][5];
     unsigned int b_DTNSimHits[4][5];
+    int b_DTNSPD[4][5];
 
     //RPC
     unsigned int b_RPCNRecHits[6][5]; //0~5: station 1~2(in/out)~3~4, 0~4: wheel -2~2
@@ -212,6 +215,10 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTBNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
     h_DTBNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
 
+    h_DTBNSPD[i] = fs->make<TH1D>(Form("h_DTB%iNSPD",i+1), Form("Number of simHit per digi (MB%i)",i+1), 40, 0, 40);
+    h_DTBNSPD[i]->GetXaxis()->SetTitle("Number of simHit");
+    h_DTBNSPD[i]->GetYaxis()->SetTitle("Number of digi (segment)");
+
     h_DTBsimValidx[i] = fs->make<TH1D>(Form("h_DTMB%isimValidx",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
     h_DTBsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_DTBsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
@@ -236,6 +243,10 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTWNSimHits[i] = fs->make<TH1D>(Form("h_DTW%iNSimHits",i-2), Form("Number of DT simhit per chamber (W%i)",i-2), 20, 0, 20);
     h_DTWNSimHits[i]->GetXaxis()->SetTitle("Number of simhit per chamber");
     h_DTWNSimHits[i]->GetYaxis()->SetTitle("Number of chamber");
+
+    h_DTWNSPD[i] = fs->make<TH1D>(Form("h_DTW%iNSPD",i-2), Form("Number of simHit per digi (W%i)",i-2), 40, 0, 40);
+    h_DTWNSPD[i]->GetXaxis()->SetTitle("Number of simHit");
+    h_DTWNSPD[i]->GetYaxis()->SetTitle("Number of digi (segment)");
 
     h_DTWsimValidx[i] = fs->make<TH1D>(Form("h_DTW%isimValidx",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
     h_DTWsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
@@ -266,6 +277,10 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_DTSWNDigis->GetYaxis()->SetBinLabel(3,"W0");
   h_DTSWNDigis->GetYaxis()->SetBinLabel(4,"W+1");
   h_DTSWNDigis->GetYaxis()->SetBinLabel(5,"W+2");
+
+  h_NSPDall = fs->make<TH1D>("h_NSPDall", "Number of simHit per digi", 40, 0, 40);
+  h_NSPDall->GetXaxis()->SetTitle("Number of simHit");
+  h_NSPDall->GetYaxis()->SetTitle("Number of digi (segment)");
 
   //RPC
   h_RPCTimeRes = fs->make<TH1D>("h_RPCTimeRes", "RPC time residual (TOF-time)", 50, 0, 50);
@@ -314,10 +329,6 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(3,"W0");
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
-
-  h_NSPD = fs->make<TH1D>("h_NSPD", "number of simHit per digi", 40, 0, 40);
-  h_NSPD->GetXaxis()->SetTitle("Number of simHit");
-  h_NSPD->GetYaxis()->SetTitle("Number of digi (segment)");
 
 /*
   h_MatchedME31 = fs->make<TH2D>("h_MatchedME31", "Matching efficiency in ME31", 25, 0, 25, 25, 0, 25);
@@ -522,6 +533,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       for (int i=0; i<4; i++) {
         for (int j=0; j < 5; j++) {
+          b_DTNSPD[i][j] = 0;
+
           for (int k=0; k < 100; k++) {
             DTisValidx[i][j][k] = false;
             DTisValidy[i][j][k] = false;
@@ -547,6 +560,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
           //cout << "I'm the same" << endl;
           NSPD++;
+          b_DTNSPD[idxDTStation][idxDTWheel]++;
           dt_simmatched = true; //Check only if the segment has a simHit in the same chamber
           //if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
 
@@ -569,7 +583,18 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
       }
 
-      h_NSPD->Fill(NSPD);
+      h_NSPDall->Fill(NSPD);
+
+    for (int i=0; i<4; i++) {
+      double tmp = 0;
+      for (int j=0; j<5; j++) tmp += b_DTNSPD[i][j];
+      h_DTBNSPD[i]->Fill(tmp);
+    }
+    for (int j=0; j<5; j++) {
+      double tmp = 0;
+      for (int i=0; i<4; i++) tmp += b_DTNSPD[i][j];
+      h_DTWNSPD[j]->Fill(tmp);
+    }
 
       for (int i=0; i<4; i++) {
         for (int j=0; j<5; j++) {
@@ -633,7 +658,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           }
         }
       }
-    }//CSCLCT loop
+    }//DTSegment loop
 
     for (int i=0; i<4; i++) {
       double tmp1 = 0; double tmp2 = 0;

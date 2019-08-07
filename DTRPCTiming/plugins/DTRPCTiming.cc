@@ -131,10 +131,10 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     int b_rpcBX;
     int b_cscBX;
 */
-    double sDTx[4][5][100];//station-wheel-distance
-    double sDTy[4][5][100];
-    bool DTisValidx[4][5][100];
-    bool DTisValidy[4][5][100];
+    double sDTx[4][5][200];//station-wheel-distance
+    double sDTy[4][5][200];
+    bool DTisValidx[4][5][200];
+    bool DTisValidy[4][5][200];
     bool isMatchx[4][5][25];
     bool isMatchy[4][5][25];
     double DTMatchedx[4][5][25];
@@ -205,6 +205,14 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   EventInfo->GetXaxis()->SetBinLabel(1,"Total Number of Events");
   EventInfo->GetXaxis()->SetBinLabel(2,"Selected Number of Events");
 
+  h_RPCTimeRes = fs->make<TH1D>("h_RPCTimeRes", "RPC time residual (TOF-time)", 50, 0, 50);
+  h_RPCTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
+  h_RPCNonMuTimeRes = fs->make<TH1D>("h_RPCNonMuTimeRes", "RPC time residual for non-muon simhits(TOF-time)", 50, 0, 50);
+  h_RPCNonMuTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCNonMuTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
   //DT
   for (int i=0; i<4; i++) {
     h_DTBNDigis[i] = fs->make<TH1D>(Form("h_DTMB%iNDigis",i+1), Form("Number of digi per chamber (MB%i)",i+1), 10, 0, 10);
@@ -219,11 +227,11 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTBNSPD[i]->GetXaxis()->SetTitle("Number of simHit");
     h_DTBNSPD[i]->GetYaxis()->SetTitle("Number of digi (segment)");
 
-    h_DTBsimValidx[i] = fs->make<TH1D>(Form("h_DTMB%isimValidx",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_DTBsimValidx[i] = fs->make<TH1D>(Form("h_DTMB%isimValidx",i+1), Form("Validation Percentage in MB%i",i+1), 200, 0, 200);
     h_DTBsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_DTBsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_DTBsimValidy[i] = fs->make<TH1D>(Form("h_DTMB%isimValidy",i+1), Form("Validation Percentage in MB%i",i+1), 100, 0, 100);
+    h_DTBsimValidy[i] = fs->make<TH1D>(Form("h_DTMB%isimValidy",i+1), Form("Validation Percentage in MB%i",i+1), 200, 0, 200);
     h_DTBsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTBsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
 
@@ -248,11 +256,11 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTWNSPD[i]->GetXaxis()->SetTitle("Number of simHit");
     h_DTWNSPD[i]->GetYaxis()->SetTitle("Number of digi (segment)");
 
-    h_DTWsimValidx[i] = fs->make<TH1D>(Form("h_DTW%isimValidx",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_DTWsimValidx[i] = fs->make<TH1D>(Form("h_DTW%isimValidx",i-2), Form("Validation Percentage in W%i",i-2), 200, 0, 200);
     h_DTWsimValidx[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_DTWsimValidx[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_DTWsimValidy[i] = fs->make<TH1D>(Form("h_DTW%isimValidy",i-2), Form("Validation Percentage in W%i",i-2), 100, 0, 100);
+    h_DTWsimValidy[i] = fs->make<TH1D>(Form("h_DTW%isimValidy",i-2), Form("Validation Percentage in W%i",i-2), 200, 0, 200);
     h_DTWsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTWsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
 
@@ -283,14 +291,6 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_NSPDall->GetYaxis()->SetTitle("Number of digi (segment)");
 
   //RPC
-  h_RPCTimeRes = fs->make<TH1D>("h_RPCTimeRes", "RPC time residual (TOF-time)", 50, 0, 50);
-  h_RPCTimeRes->GetXaxis()->SetTitle("Time residual");
-  h_RPCTimeRes->GetYaxis()->SetTitle("Number of rechits");
-
-  h_RPCNonMuTimeRes = fs->make<TH1D>("h_RPCNonMuTimeRes", "RPC time residual for non-muon simhits(TOF-time)", 50, 0, 50);
-  h_RPCNonMuTimeRes->GetXaxis()->SetTitle("Time residual");
-  h_RPCNonMuTimeRes->GetYaxis()->SetTitle("Number of rechits");
-
   h_RPCNRecHits = fs->make<TH1D>("h_RPCNRecHits", "", 10, 0, 10);
   h_RPCNRecHits->GetXaxis()->SetTitle("Number of rechit per chamber");
   h_RPCNRecHits->GetYaxis()->SetTitle("Number of chamber");
@@ -422,46 +422,45 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
     //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 4 && rpc_id.ring() == 1) bx_RE41NRecHits++;
 
-    //https://github.com/cms-sw/cmssw/blob/9a33fb13bee1a546877a4b581fa63876043f38f0/SimMuon/MCTruth/src/RPCHitAssociator.cc#L74-L92
-    int fstrip = rpcIt->firstClusterStrip();
-    int cls = rpcIt->clusterSize();
-    int bx = rpcIt->BunchX();
 
-    std::vector<SimHitIdpr> matched;
-    std::set<RPCDigiSimLink> links;
-    for (int i = fstrip; i < fstrip + cls; ++i) {
-
-      for (edm::DetSetVector<RPCDigiSimLink>::const_iterator itlink = thelinkDigis->begin(); itlink != thelinkDigis->end(); itlink++) {
-        for (edm::DetSet<RPCDigiSimLink>::const_iterator digi_iter = itlink->data.begin(); digi_iter != itlink->data.end(); ++digi_iter) {
-          uint32_t detid = digi_iter->getDetUnitId();
-          int str = digi_iter->getStrip();
-          int bunchx = digi_iter->getBx();
-
-          if (detid == rpc_id && str == i && bunchx == bx) {
-            links.insert(*digi_iter);
-          }
-        }
-      }
-
-      if (links.empty()) cout << "Unmatched simHit!" << endl;
-
-      for (std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink) {
-        SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
-        if (find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
-      }
-      //cout << matched.size() << " ";
-    }
-    if (!links.empty()) {
-      //cout << links.begin()->getTimeOfFlight() << " ";
-      if (abs(links.begin()->getParticleType()) != 13) {
-        h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
-      }
-      else {
-        //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
-        if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
-        h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
-      }
-    }
+//    int cls = rpcIt->clusterSize();
+//    int bx = rpcIt->BunchX();
+//
+//    std::vector<SimHitIdpr> matched;
+//    std::set<RPCDigiSimLink> links;
+//    for (int i = fstrip; i < fstrip + cls; ++i) {
+//
+//      for (edm::DetSetVector<RPCDigiSimLink>::const_iterator itlink = thelinkDigis->begin(); itlink != thelinkDigis->end(); itlink++) {
+//        for (edm::DetSet<RPCDigiSimLink>::const_iterator digi_iter = itlink->data.begin(); digi_iter != itlink->data.end(); ++digi_iter) {
+//          uint32_t detid = digi_iter->getDetUnitId();
+//          int str = digi_iter->getStrip();
+//          int bunchx = digi_iter->getBx();
+//
+//          if (detid == rpc_id && str == i && bunchx == bx) {
+//            links.insert(*digi_iter);
+//          }
+//        }
+//      }
+//
+//      if (links.empty()) cout << "Unmatched simHit!" << endl;
+//
+//      for (std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink) {
+//        SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
+//        if (find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
+//      }
+//      //cout << matched.size() << " ";
+//    }
+//    if (!links.empty()) {
+//      //cout << links.begin()->getTimeOfFlight() << " ";
+//      if (abs(links.begin()->getParticleType()) != 13) {
+//        h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+//      }
+//      else {
+//        //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
+//        if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
+//        h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+//      }
+//    }
   }
 
   //GEANT4 simhits
@@ -521,13 +520,21 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       gp_dt = GlobalPoint(0.0,0.0,0.0);
       gp_dt = getDTGlobalPosition(dt_id, tmpseg);
-      if (abs(gp_dt.eta()) > 1.2) continue; //FIXME No RPC, DT
+      //if (abs(gp_dt.eta()) > 1.2) continue; //We do check barrel manually
 
       pure_DTNDigis_Total[idxDTStation][idxDTWheel]++;
 
       const LocalPoint& dt_lp = tmpseg.localPosition();
       const LocalVector& dt_dir = tmpseg.localDirection();
-      //For now no pos/dir error included
+      const LocalError& dt_posErr = tmpseg.localPositionError();
+
+      const GeomDet* gdet=dtGeo->idToDet(tmpseg.geographicalId());
+      const BoundPlane &DTSurface = gdet->surface();
+
+      float Pos_xx = dt_posErr.xx();
+      float Pos_xy = dt_posErr.xy();
+      float Pos_yy = dt_posErr.yy();
+
       int cptype = 0;
       bool dt_simmatched = false;
 
@@ -535,7 +542,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         for (int j=0; j < 5; j++) {
           b_DTNSPD[i][j] = 0;
 
-          for (int k=0; k < 100; k++) {
+          for (int k=0; k < 200; k++) {
             DTisValidx[i][j][k] = false;
             DTisValidy[i][j][k] = false;
           }
@@ -550,7 +557,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         const LocalPoint lp_dtsim = DTsimIt->localPosition();
         DTChamberId dtsim_id = DTsimIt->detUnitId();
 
-        //sim validation with window
+        //sim validation with window - to check if the plateau appears resonably
         if (abs(cptype) != 13) continue;
         if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
 
@@ -569,14 +576,14 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           if (superlayer == 2) {
             sDx = abs(dt_lp.x() - lp_dtsim.y());//x-y inverted in theta layer
             sDy = abs(dt_lp.y() + lp_dtsim.x());
-            //cout << dt_lp.x() << " " << lp_dtsim.y() << " " << dt_lp.y() << " " << lp_dtsim.x() << endl;
+            //cout << "SL: " << superlayer  << " lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.y() << " / " << sDx << " // lp_y, sim_y, dy: " << dt_lp.y() << " / " << lp_dtsim.x() << " / " << sDy << " // " << Pos_xx << " " << Pos_yy << " " << endl;
           }
           else {
             sDx = abs(dt_lp.x() - lp_dtsim.x());
             sDy = abs(dt_lp.y() - lp_dtsim.y());
-            //cout << dt_lp.x() << " " << lp_dtsim.x() << " " << dt_lp.y() << " " << lp_dtsim.y() << endl;
+            //cout << "SL: " << superlayer  << " lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.x() << " / " << sDx << " // lp_y, sim_y, dy: " << dt_lp.y() << " / " << -lp_dtsim.y() << " / " << sDy << " // " <<  Pos_xx << " " << Pos_yy << " " << endl;
           }
-          for (int k=0; k<100; k++) {
+          for (int k=0; k<200; k++) {
             if (sDx < k/100.) DTisValidx[idxDTStation][idxDTWheel][k] = true;
             if (sDy < k/100.) DTisValidy[idxDTStation][idxDTWheel][k] = true;
           }
@@ -585,20 +592,20 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       h_NSPDall->Fill(NSPD);
 
-    for (int i=0; i<4; i++) {
-      double tmp = 0;
-      for (int j=0; j<5; j++) tmp += b_DTNSPD[i][j];
-      h_DTBNSPD[i]->Fill(tmp);
-    }
-    for (int j=0; j<5; j++) {
-      double tmp = 0;
-      for (int i=0; i<4; i++) tmp += b_DTNSPD[i][j];
-      h_DTWNSPD[j]->Fill(tmp);
-    }
+      for (int i=0; i<4; i++) {
+        double tmp = 0;
+        for (int j=0; j<5; j++) tmp += b_DTNSPD[i][j];
+        h_DTBNSPD[i]->Fill(tmp);
+      }
+      for (int j=0; j<5; j++) {
+        double tmp = 0;
+        for (int i=0; i<4; i++) tmp += b_DTNSPD[i][j];
+        h_DTWNSPD[j]->Fill(tmp);
+      }
 
       for (int i=0; i<4; i++) {
         for (int j=0; j<5; j++) {
-          for (int k=0; k<100; k++) {
+          for (int k=0; k<200; k++) {
             if (DTisValidx[i][j][k]) sDTx[i][j][k]++;
             if (DTisValidy[i][j][k]) sDTy[i][j][k]++;
             if (k < 25) {
@@ -620,10 +627,17 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
 
         RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
-        if (rpc_id.region() == 0) continue; //skip the barrels
+        if (rpc_id.region() != 0) continue; //skip the barrels
+        if (rpc_id.station() != dt_id.station()) continue; //Check only nearest station
 
         GlobalPoint gp_rpc(0.0,0.0,0.0);
         gp_rpc = getRPCGlobalPosition(rpc_id, *rpcIt);
+
+        const BoundPlane& RPCSurface = rpcGeo->idToDet(rpc_id)->surface();
+        GlobalPoint CenterPointRollGlobal = RPCSurface.toGlobal(LocalPoint(0,0,0));
+        LocalPoint CenterRollinDTFrame = DTSurface.toLocal(CenterPointRollGlobal);
+        float D = CenterRollinDTFrame.z();
+        if (abs(D) > 200) continue;
 
         //if (gp_rpc.z() * gp_dt.z() < 0 ) continue; //In W0, this can be negative!
 
@@ -634,12 +648,14 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         float dy = dt_dir.y();
         float dz = dt_dir.z();
 
-        GlobalPoint gp_transcsc(Xo+dx, Yo+dy, gp_rpc.z());
-        LocalPoint lp_extrapol = rpcGeo->idToDet(rpc_id)->surface().toLocal(gp_transcsc);
+        LocalPoint lp_dtframe(Xo + dx*D/dz, Yo + dy*D/dz, D);
+        GlobalPoint dt_gp_ext = dtGeo->idToDet(dt_id)->surface().toGlobal(lp_dtframe);
+        LocalPoint lp_extrapol = rpcGeo->idToDet(rpc_id)->surface().toLocal(dt_gp_ext);
 
         //local distance
         LocalPoint lp_rpc(0.0,0.0,0.0);
         lp_rpc = (*rpcIt).localPosition();
+
         float Dx = abs(lp_rpc.x() - lp_extrapol.x());
         float Dy = abs(lp_rpc.y() - lp_extrapol.y());
 
@@ -648,6 +664,49 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           if (Dy < k+1) isMatchy[idxDTStation][idxDTWheel][k] = true;
         }
 
+        if (Dx < 10){
+          //cout << lp_extrapol << " / " << lp_rpc << endl;
+          //https://github.com/cms-sw/cmssw/blob/9a33fb13bee1a546877a4b581fa63876043f38f0/SimMuon/MCTruth/src/RPCHitAssociator.cc#L74-L92
+          int fstrip = rpcIt->firstClusterStrip();
+          int cls = rpcIt->clusterSize();
+          int bx = rpcIt->BunchX();
+
+          std::vector<SimHitIdpr> matched;
+          std::set<RPCDigiSimLink> links;
+          for (int i = fstrip; i < fstrip + cls; ++i) {
+
+            for (edm::DetSetVector<RPCDigiSimLink>::const_iterator itlink = thelinkDigis->begin(); itlink != thelinkDigis->end(); itlink++) {
+              for (edm::DetSet<RPCDigiSimLink>::const_iterator digi_iter = itlink->data.begin(); digi_iter != itlink->data.end(); ++digi_iter) {
+                uint32_t detid = digi_iter->getDetUnitId();
+                int str = digi_iter->getStrip();
+                int bunchx = digi_iter->getBx();
+
+                if (detid == rpc_id && str == i && bunchx == bx) {
+                  links.insert(*digi_iter);
+                }
+              }
+            }
+
+            if (links.empty()) cout << "Unmatched simHit!" << endl;
+
+            for (std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink) {
+              SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
+              if (find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
+            }
+            //cout << matched.size() << " ";
+          }
+          if (!links.empty()) {
+            //cout << links.begin()->getTimeOfFlight() << " ";
+            if (abs(links.begin()->getParticleType()) != 13) {
+              h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+            }
+            else {
+              //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
+              if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
+              h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+            }
+          }
+        }
       }//RPCRecHit loop
 
       for (int i=0; i<4; i++) {
@@ -683,7 +742,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if (bx_ME41NDigis != 0) h_ME41NDigis0->Fill(bx_ME41NDigis);
     */
 
-  }//CSCChamber loop
+  }//DTChamber loop
 
   h_RPCNRecHits->Fill(nRPC);
   for (int i=0; i<6; i++) {
@@ -748,7 +807,7 @@ DTRPCTiming::beginJob()
       b_DTNDigis_Total[i][j]=0;
       pure_DTNDigis_Total[i][j]=0;
 
-      for (int k=0; k<100; k++) {
+      for (int k=0; k<200; k++) {
         sDTx[i][j][k] = 0;
         sDTy[i][j][k] = 0;
 
@@ -794,7 +853,7 @@ DTRPCTiming::endJob(){
   }
   */
 
-  for (int k=0; k<100; k++) {
+  for (int k=0; k<200; k++) {
     //sim validation
     for (int i=0; i<4; i++) {
       double tmp1 = 0; double tmp2 = 0; double tmp3 = 0;

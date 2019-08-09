@@ -35,12 +35,15 @@
 #include "DataFormats/RPCRecHit/interface/RPCRecHitCollection.h"
 
 #include "Geometry/CommonDetUnit/interface/GeomDet.h"
+#include "Geometry/CommonTopologies/interface/RectangularStripTopology.h"
 #include "Geometry/DTGeometry/interface/DTGeometry.h"
 #include "Geometry/RPCGeometry/interface/RPCGeometry.h"
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 
 #include "SimDataFormats/TrackingHit/interface/PSimHitContainer.h"
 #include "SimDataFormats/RPCDigiSimLink/interface/RPCDigiSimLink.h"
+#include "SimMuon/RPCDigitizer/src/RPCSimSetUp.h"
+#include "SimMuon/RPCDigitizer/src/RPCSim.h"
 #include "SimTracker/TrackerHitAssociation/interface/TrackerHitAssociator.h"
 
 using namespace edm;
@@ -56,10 +59,14 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     //https://github.com/cms-sw/cmssw/blob/master/L1Trigger/L1TMuon/interface/GeometryTranslator.h
     const DTGeometry& getDTGeometry() const { return *dtGeo; }
 
+    RPCSimSetUp* getRPCSimSetUp() { return theSimSetUp; }
+
   private:
     virtual void beginJob() override;
     virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
     virtual void endJob() override;
+
+    RPCSimSetUp* theSimSetUp;
 
     TTree *tree;
     TH1D *EventInfo;
@@ -81,6 +88,8 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     TH2D *h_RPCSWNRecHits;
     TH1D *h_RPCTimeRes;
     TH1D *h_RPCNonMuTimeRes;
+    TH1D *h_RPCUpdatedTimeRes;
+    TH1D *h_RPCUpdatedNonMuTimeRes;
 
     //N simHit per digi; in 1 digi case, count numbers in same chamber
     TH1D *h_NSPDall;
@@ -135,10 +144,10 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     double sDTy[4][5][200];
     bool DTisValidx[4][5][200];
     bool DTisValidy[4][5][200];
-    bool isMatchx[4][5][25];
-    bool isMatchy[4][5][25];
-    double DTMatchedx[4][5][25];
-    double DTMatchedy[4][5][25];
+    bool isMatchx[4][5][100];
+    bool isMatchy[4][5][100];
+    double DTMatchedx[4][5][100];
+    double DTMatchedy[4][5][100];
 
     int EventNum;
     int label_;
@@ -161,6 +170,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
     GlobalPoint getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const;
     GlobalPoint getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const;
+    float getTimeRef(unsigned int rawid) const;
 };
 
 GlobalPoint
@@ -193,6 +203,8 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   DTsimHitToken_ = consumes<PSimHitContainer>(iConfig.getUntrackedParameter<edm::InputTag>("DTsimHitLabel", edm::InputTag("g4SimHits:MuonDTHits")));
   RPCdigisimlinkToken_ = consumes<edm::DetSetVector<RPCDigiSimLink>>(iConfig.getParameter<edm::InputTag>("rpcSimLinkLabel"));
 
+  RPCSimSetUp* simsetup = this->getRPCSimSetUp();
+
   //numDigi label
   label_ = iConfig.getUntrackedParameter<int>("label");
 
@@ -212,6 +224,14 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCNonMuTimeRes = fs->make<TH1D>("h_RPCNonMuTimeRes", "RPC time residual for non-muon simhits(TOF-time)", 50, 0, 50);
   h_RPCNonMuTimeRes->GetXaxis()->SetTitle("Time residual");
   h_RPCNonMuTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
+  h_RPCUpdatedTimeRes = fs->make<TH1D>("h_RPCUpdatedTimeRes", "RPC updated time residual (TOF-time)", 50, 0, 50);
+  h_RPCUpdatedTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCUpdatedTimeRes->GetYaxis()->SetTitle("Number of rechits");
+
+  h_RPCUpdatedNonMuTimeRes = fs->make<TH1D>("h_RPCUpdatedNonMuTimeRes", "RPC updated time residual for non-muon simhits(TOF-time)", 50, 0, 50);
+  h_RPCUpdatedNonMuTimeRes->GetXaxis()->SetTitle("Time residual");
+  h_RPCUpdatedNonMuTimeRes->GetYaxis()->SetTitle("Number of rechits");
 
   //DT
   for (int i=0; i<4; i++) {
@@ -235,12 +255,12 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTBsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTBsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_xNMatchedB[i] = fs->make<TH1D>(Form("h_xNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 25, 0, 25);
-    h_xNMatchedB[i]->GetXaxis()->SetTitle("X cutoff (cm)");
+    h_xNMatchedB[i] = fs->make<TH1D>(Form("h_xNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 100, 0, 100);
+    h_xNMatchedB[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_xNMatchedB[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_yNMatchedB[i] = fs->make<TH1D>(Form("h_yNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 25, 0, 25);
-    h_yNMatchedB[i]->GetXaxis()->SetTitle("Y cutoff (cm)");
+    h_yNMatchedB[i] = fs->make<TH1D>(Form("h_yNMatchedB%i",i+1), Form("Matching Efficiency in MB%i",i+1), 100, 0, 100);
+    h_yNMatchedB[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_yNMatchedB[i]->GetYaxis()->SetTitle("Matched (%)");
   }
   for (int i=0; i<5; i++) {
@@ -264,12 +284,12 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
     h_DTWsimValidy[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_DTWsimValidy[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_xNMatchedW[i] = fs->make<TH1D>(Form("h_xNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 25, 0, 25);
-    h_xNMatchedW[i]->GetXaxis()->SetTitle("X cutoff (cm)");
+    h_xNMatchedW[i] = fs->make<TH1D>(Form("h_xNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 100, 0, 100);
+    h_xNMatchedW[i]->GetXaxis()->SetTitle("X cutoff (mm)");
     h_xNMatchedW[i]->GetYaxis()->SetTitle("Matched (%)");
 
-    h_yNMatchedW[i] = fs->make<TH1D>(Form("h_yNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 25, 0, 25);
-    h_yNMatchedW[i]->GetXaxis()->SetTitle("Y cutoff (cm)");
+    h_yNMatchedW[i] = fs->make<TH1D>(Form("h_yNMatchedW%i",i-2), Form("Matching Efficiency in W%i",i-2), 100, 0, 100);
+    h_yNMatchedW[i]->GetXaxis()->SetTitle("Y cutoff (mm)");
     h_yNMatchedW[i]->GetYaxis()->SetTitle("Matched (%)");
   }
 
@@ -330,23 +350,6 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(4,"W+1");
   h_RPCSWNRecHits->GetYaxis()->SetBinLabel(5,"W+2");
 
-/*
-  h_MatchedME31 = fs->make<TH2D>("h_MatchedME31", "Matching efficiency in ME31", 25, 0, 25, 25, 0, 25);
-  h_MatchedME31->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_MatchedME31->GetYaxis()->SetTitle("Y cutoff (cm)");
-
-  h_MatchedME41 = fs->make<TH2D>("h_MatchedME41", "Matching efficiency in ME41", 25, 0, 25, 25, 0, 25);
-  h_MatchedME41->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_MatchedME41->GetYaxis()->SetTitle("Y cutoff (cm)");
-
-  h_RatioME31 = fs->make<TH2D>("h_RatioME31", "Matching efficiency in ME31", 25, 0, 25, 25, 0, 25);
-  h_RatioME31->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_RatioME31->GetYaxis()->SetTitle("Y cutoff (cm)");
-
-  h_RatioME41 = fs->make<TH2D>("h_RatioME41", "Matching efficiency in ME41", 25, 0, 25, 25, 0, 25);
-  h_RatioME41->GetXaxis()->SetTitle("X cutoff (cm)");
-  h_RatioME41->GetYaxis()->SetTitle("Y cutoff (cm)");
-*/
   h_ptype = fs->make<TH1D>("h_ptype", "", 4,0,4);
   h_ptype->GetXaxis()->SetBinLabel(1,"Electron");
   h_ptype->GetXaxis()->SetBinLabel(2,"Muon");
@@ -560,7 +563,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         //sim validation with window - to check if the plateau appears resonably
         if (abs(cptype) != 13) continue;
         if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
-
           DTSuperLayerId dt_slID(DTsimIt->detUnitId());
           //cout << dt_slID.superlayer() << endl;
           int superlayer = dt_slID.superlayer();
@@ -584,8 +586,8 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             //cout << "SL: " << superlayer  << " lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.x() << " / " << sDx << " // lp_y, sim_y, dy: " << dt_lp.y() << " / " << -lp_dtsim.y() << " / " << sDy << " // " <<  Pos_xx << " " << Pos_yy << " " << endl;
           }
           for (int k=0; k<200; k++) {
-            if (sDx < k/100.) DTisValidx[idxDTStation][idxDTWheel][k] = true;
-            if (sDy < k/100.) DTisValidy[idxDTStation][idxDTWheel][k] = true;
+            if (sDx < k/10.) DTisValidx[idxDTStation][idxDTWheel][k] = true; // 1cm / 10 -> mm!
+            if (sDy < k/10.) DTisValidy[idxDTStation][idxDTWheel][k] = true;
           }
         }
       }
@@ -608,7 +610,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           for (int k=0; k<200; k++) {
             if (DTisValidx[i][j][k]) sDTx[i][j][k]++;
             if (DTisValidy[i][j][k]) sDTy[i][j][k]++;
-            if (k < 25) {
+            if (k < 100) {
               isMatchx[i][j][k] = false;
               isMatchy[i][j][k] = false;
             }
@@ -655,16 +657,20 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         //local distance
         LocalPoint lp_rpc(0.0,0.0,0.0);
         lp_rpc = (*rpcIt).localPosition();
+        const auto& rpc_bound = RPCSurface.bounds(); //Check if extrapolated segment is within RPC chamber
+        //cout << rpc_bound.length() << " " << rpc_bound.width() << endl;
+        //https://github.com/cms-sw/cmssw/blob/04a85943355965447837cff7da77bde47a88e176/RecoLocalMuon/RPCRecHit/src/TracktoRPC.cc#L33
+        if (not( fabs(lp_extrapol.x()) < rpc_bound.width()/2 && fabs(lp_extrapol.y()) < rpc_bound.length()/2 )) continue;
 
         float Dx = abs(lp_rpc.x() - lp_extrapol.x());
         float Dy = abs(lp_rpc.y() - lp_extrapol.y());
 
-        for (int k=0; k<25; k++){
-          if (Dx < k+1) isMatchx[idxDTStation][idxDTWheel][k] = true;
-          if (Dy < k+1) isMatchy[idxDTStation][idxDTWheel][k] = true;
+        for (int k=0; k<100; k++){
+          if (Dx < (k+1)/10.) isMatchx[idxDTStation][idxDTWheel][k] = true; // 1cm / 10 -> mm!
+          if (Dy < (k+1)/10.) isMatchy[idxDTStation][idxDTWheel][k] = true;
         }
 
-        if (Dx < 10){
+        if (Dx < 2){//arbitrary cutoff here FIXME
           //cout << lp_extrapol << " / " << lp_rpc << endl;
           //https://github.com/cms-sw/cmssw/blob/9a33fb13bee1a546877a4b581fa63876043f38f0/SimMuon/MCTruth/src/RPCHitAssociator.cc#L74-L92
           int fstrip = rpcIt->firstClusterStrip();
@@ -696,14 +702,42 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             //cout << matched.size() << " ";
           }
           if (!links.empty()) {
+            //https://github.com/cms-sw/cmssw/blob/master/SimMuon/RPCDigitizer/src/RPCSynchronizer.cc#L107
+            //https://github.com/cms-sw/cmssw/blob/master/SimMuon/RPCDigitizer/python/muonRPCDigis_cfi.py#L39
+            double c = 299792458;  // [m/s]
+            //light speed in [cm/ns]
+            double cspeed = c * 1e+2 * 1e-9;
+            //signal propagation speed [cm/ns]
+            double sspeed = 0.66 * cspeed;
+
+            //https://github.com/cms-sw/cmssw/blob/04a85943355965447837cff7da77bde47a88e176/RecoLocalMuon/RPCRecHit/src/TracktoRPC.cc
+            const GeomDet *geomDet2 = rpcGeo->idToDet(rpc_id);
+            const RPCRoll *aroll = dynamic_cast<const RPCRoll *>(geomDet2);
+            const RectangularStripTopology *top_ = dynamic_cast<const RectangularStripTopology *>(&(aroll->topology()));
+            //LocalPoint xmin = top_->localPosition(0.);
+            //LocalPoint xmax = top_->localPosition((float)aroll->nstrips());
+            //float rsize = fabs(xmax.x() - xmin.x());
+            float stripLenHalf = top_->stripLength() / 2;
+            //region == 0: distanceFromEdge = half_stripL + simHitPos.y() (RPCSynchronizer.cc)
+            //This suggests readout at -y end!
+            float prop_length = stripLenHalf + lp_extrapol.y();
+
+            //https://github.com/cms-sw/cmssw/blob/master/SimMuon/RPCDigitizer/src/RPCSynchronizer.cc#L58-L61
+            //RPCSimSetUp* simsetup = this->getRPCSimSetUp();
+            //const RPCGeometry* geometry = simsetup->getGeometry();
+            //float timeref = getTimeRef(rpc_id.rawId());
+            //cout << timeref << endl;
+
             //cout << links.begin()->getTimeOfFlight() << " ";
             if (abs(links.begin()->getParticleType()) != 13) {
               h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+              h_RPCUpdatedNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
             }
             else {
               //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
               if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
               h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
+              h_RPCUpdatedTimeRes->Fill(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
             }
           }
         }
@@ -711,7 +745,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       for (int i=0; i<4; i++) {
         for (int j=0; j<5; j++) {
-          for (int k=0; k<25; k++) {
+          for (int k=0; k<100; k++) {
             if (isMatchx[i][j][k]) DTMatchedx[i][j][k]++;
             if (isMatchy[i][j][k]) DTMatchedy[i][j][k]++;
           }
@@ -811,7 +845,7 @@ DTRPCTiming::beginJob()
         sDTx[i][j][k] = 0;
         sDTy[i][j][k] = 0;
 
-        if (k < 25) {
+        if (k < 100) {
           DTMatchedx[i][j][k] = 0;
           DTMatchedy[i][j][k] = 0;
         }
@@ -862,7 +896,7 @@ DTRPCTiming::endJob(){
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
-        if (k < 25) {
+        if (k < 100) {
           tmp4 += DTMatchedx[i][j][k];
           tmp5 += DTMatchedy[i][j][k];
           tmp6 += b_DTNDigis_Total[i][j];
@@ -872,7 +906,7 @@ DTRPCTiming::endJob(){
         h_DTBsimValidx[i]->SetBinContent(k+1, 100*tmp1/tmp3);
         h_DTBsimValidy[i]->SetBinContent(k+1, 100*tmp2/tmp3);
       }
-      if (k < 25 and tmp6 >0) {
+      if (k < 100 and tmp6 >0) {
         h_xNMatchedB[i]->SetBinContent(k+1, 100*tmp4/tmp6);
         h_yNMatchedB[i]->SetBinContent(k+1, 100*tmp5/tmp6);
       }
@@ -884,7 +918,7 @@ DTRPCTiming::endJob(){
         tmp1 += sDTx[i][j][k];
         tmp2 += sDTy[i][j][k];
         tmp3 += pure_DTNDigis_Total[i][j];
-        if (k < 25) {
+        if (k < 100) {
           tmp4 += DTMatchedx[i][j][k];
           tmp5 += DTMatchedy[i][j][k];
           tmp6 += b_DTNDigis_Total[i][j];
@@ -894,7 +928,7 @@ DTRPCTiming::endJob(){
         h_DTWsimValidx[j]->SetBinContent(k+1, 100*tmp1/tmp3);
         h_DTWsimValidy[j]->SetBinContent(k+1, 100*tmp2/tmp3);
       }
-      if (k < 25 and tmp6 > 0) {
+      if (k < 100 and tmp6 > 0) {
         h_xNMatchedW[j]->SetBinContent(k+1, 100*tmp4/tmp6);
         h_yNMatchedW[j]->SetBinContent(k+1, 100*tmp5/tmp6);
       }

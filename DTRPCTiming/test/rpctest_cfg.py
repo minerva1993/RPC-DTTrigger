@@ -41,11 +41,11 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-       'file:/afs/cern.ch/user/j/jipark/work/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_1.root',
-       #'file:/afs/cern.ch/user/j/jipark/work/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_2.root',
-       #'file:/afs/cern.ch/user/j/jipark/work/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_3.root',
-       #'file:/afs/cern.ch/user/j/jipark/work/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_4.root',
-       #'file:/afs/cern.ch/user/j/jipark/work/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_5.root',
+       'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_1.root',
+       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_2.root',
+       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_3.root',
+       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_4.root',
+       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_5.root',
     )
 )
 

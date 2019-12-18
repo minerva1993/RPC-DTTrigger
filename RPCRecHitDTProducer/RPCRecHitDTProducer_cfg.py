@@ -45,7 +45,7 @@ process.options = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
 # Source
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-        'file:/eos/cms/store/group/dpg_dt/comm_dt/TriggerSimulation/SamplesReco/SingleMu_FlatPt-2to100/Version_10_5_0/SimRECO_1.root'
+        'file:/eos/cms/store/group/dpg_dt/comm_dt/TriggerSimulation/SamplesReco/SingleMu_FlatPt-2to100/Version_10_5_0/SimRECO_5.root'
     )
 )
 
@@ -57,7 +57,7 @@ process.p = cms.Path( process.rpcRecHits )
 process.out = cms.OutputModule("PoolOutputModule",
     outputCommands = cms.untracked.vstring(
         "drop *",
-        #, "keep *_simMuonRPCDigis__*",
+        "keep *_simMuonRPCDigis__*",
         "keep *_g4SimHits_MuonDTHits_*",
         "keep *_g4SimHits_MuonRPCHits_*",
         "keep *_rpcRecHits__*",

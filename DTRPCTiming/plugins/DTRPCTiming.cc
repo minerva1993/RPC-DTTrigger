@@ -49,6 +49,8 @@
 using namespace edm;
 using namespace std;
 
+class RPCSimSetUp;
+
 class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
   public:
     explicit DTRPCTiming(const edm::ParameterSet&);
@@ -58,7 +60,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
     //https://github.com/cms-sw/cmssw/blob/master/L1Trigger/L1TMuon/interface/GeometryTranslator.h
     const DTGeometry& getDTGeometry() const { return *dtGeo; }
-
+    //https://github.com/cms-sw/cmssw/blob/2c91040e71a5447c0e161e80ce914260713b8317/SimMuon/RPCDigitizer/src/RPCSynchronizer.h#L44
     RPCSimSetUp* getRPCSimSetUp() { return theSimSetUp; }
 
   private:
@@ -170,7 +172,7 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
     GlobalPoint getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const;
     GlobalPoint getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const;
-    float getTimeRef(unsigned int rawid) const;
+    float getTimeRef(unsigned int rawId);
 };
 
 GlobalPoint
@@ -195,6 +197,16 @@ DTRPCTiming::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
 
 }
 
+float DTRPCTiming::getTimeRef(unsigned int rawId) {
+
+  RPCSimSetUp* simsetup = this->getRPCSimSetUp();
+  //const RPCGeometry* geometry = simsetup->getGeometry();
+  float timeref = simsetup->getTime(rawId);
+
+  return timeref;
+
+}
+
 DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
 {
   dt4DSegments_ = consumes<DTRecSegment4DCollection>(iConfig.getParameter<edm::InputTag>("dt4DSegments"));
@@ -202,8 +214,6 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   rpcRecHitsToken_ = consumes<RPCRecHitCollection>(edm::InputTag(RPCDigiLabel.label(), "" ));
   DTsimHitToken_ = consumes<PSimHitContainer>(iConfig.getUntrackedParameter<edm::InputTag>("DTsimHitLabel", edm::InputTag("g4SimHits:MuonDTHits")));
   RPCdigisimlinkToken_ = consumes<edm::DetSetVector<RPCDigiSimLink>>(iConfig.getParameter<edm::InputTag>("rpcSimLinkLabel"));
-
-  RPCSimSetUp* simsetup = this->getRPCSimSetUp();
 
   //numDigi label
   label_ = iConfig.getUntrackedParameter<int>("label");
@@ -357,6 +367,7 @@ DTRPCTiming::DTRPCTiming(const edm::ParameterSet& iConfig)
   h_ptype->GetXaxis()->SetBinLabel(4,"Proton");
   h_ptype->GetXaxis()->SetTitle("Particle type");
   h_ptype->GetYaxis()->SetTitle("Entries");
+
 }
 
 DTRPCTiming::~DTRPCTiming()
@@ -422,48 +433,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     h_RPCSWNRecHits->Fill(idxRPCStation+1, rpc_id.ring(), 1); //Want to draw ring -2~2
     b_RPCNRecHits[idxRPCStation][idxRPCRing]++;
-    //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 3 && rpc_id.ring() == 1) bx_RE31NRecHits++;
-    //if((*rpcIt).BunchX() == 0 && rpc_id.station() == 4 && rpc_id.ring() == 1) bx_RE41NRecHits++;
-
-
-//    int cls = rpcIt->clusterSize();
-//    int bx = rpcIt->BunchX();
-//
-//    std::vector<SimHitIdpr> matched;
-//    std::set<RPCDigiSimLink> links;
-//    for (int i = fstrip; i < fstrip + cls; ++i) {
-//
-//      for (edm::DetSetVector<RPCDigiSimLink>::const_iterator itlink = thelinkDigis->begin(); itlink != thelinkDigis->end(); itlink++) {
-//        for (edm::DetSet<RPCDigiSimLink>::const_iterator digi_iter = itlink->data.begin(); digi_iter != itlink->data.end(); ++digi_iter) {
-//          uint32_t detid = digi_iter->getDetUnitId();
-//          int str = digi_iter->getStrip();
-//          int bunchx = digi_iter->getBx();
-//
-//          if (detid == rpc_id && str == i && bunchx == bx) {
-//            links.insert(*digi_iter);
-//          }
-//        }
-//      }
-//
-//      if (links.empty()) cout << "Unmatched simHit!" << endl;
-//
-//      for (std::set<RPCDigiSimLink>::iterator itlink = links.begin(); itlink != links.end(); ++itlink) {
-//        SimHitIdpr currentId(itlink->getTrackId(), itlink->getEventId());
-//        if (find(matched.begin(), matched.end(), currentId) == matched.end()) matched.push_back(currentId);
-//      }
-//      //cout << matched.size() << " ";
-//    }
-//    if (!links.empty()) {
-//      //cout << links.begin()->getTimeOfFlight() << " ";
-//      if (abs(links.begin()->getParticleType()) != 13) {
-//        h_RPCNonMuTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
-//      }
-//      else {
-//        //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
-//        if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
-//        h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
-//      }
-//    }
   }
 
   //GEANT4 simhits
@@ -496,7 +465,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     for (int i=0; i<4; i++) {
       for (int j=0; j<5; j++) b_DTNDigis[i][j]=0;
     }
-    //bx_ME31NDigis = bx_ME41NDigis =0;
     //b_cscBX = b_rpcBX = 0;
 
     GlobalPoint gp_dt;
@@ -571,19 +539,26 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
           NSPD++;
           b_DTNSPD[idxDTStation][idxDTWheel]++;
           dt_simmatched = true; //Check only if the segment has a simHit in the same chamber
-          //if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())+(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
+          //if (sqrt(dt_lp.x()-lp_dtsim.x())*(dt_lp.x()-lp_dtsim.x())
+          //  +(dt_lp.y()-lp_dtsim.y())*(dt_lp.y()-lp_dtsim.y()) < 0.5) dt_simmatched = true;
 
           float sDx = 0;
           float sDy = 0;
           if (superlayer == 2) {
             sDx = abs(dt_lp.x() - lp_dtsim.y());//x-y inverted in theta layer
             sDy = abs(dt_lp.y() + lp_dtsim.x());
-            //cout << "SL: " << superlayer  << " lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.y() << " / " << sDx << " // lp_y, sim_y, dy: " << dt_lp.y() << " / " << lp_dtsim.x() << " / " << sDy << " // " << Pos_xx << " " << Pos_yy << " " << endl;
+            //cout << "SL: " << superlayer  <<
+            //" // lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.y() << " / " << sDx <<
+            //" // lp_y, sim_y, dy: " << dt_lp.y() << " / " << lp_dtsim.x() << " / " << sDy <<
+            //" // " << Pos_xx << " " << Pos_yy << " " << endl;
           }
           else {
             sDx = abs(dt_lp.x() - lp_dtsim.x());
             sDy = abs(dt_lp.y() - lp_dtsim.y());
-            //cout << "SL: " << superlayer  << " lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.x() << " / " << sDx << " // lp_y, sim_y, dy: " << dt_lp.y() << " / " << -lp_dtsim.y() << " / " << sDy << " // " <<  Pos_xx << " " << Pos_yy << " " << endl;
+            //cout << "SL: " << superlayer  <<
+            //" // lp_x, sim_x, dx: " << dt_lp.x() << " / " << lp_dtsim.x() << " / " << sDx <<
+            //" // lp_y, sim_y, dy: " << dt_lp.y() << " / " << -lp_dtsim.y() << " / " << sDy <<
+            //" // " << Pos_xx << " " << Pos_yy << " " << endl;
           }
           for (int k=0; k<200; k++) {
             if (sDx < k/10.) DTisValidx[idxDTStation][idxDTWheel][k] = true; // 1cm / 10 -> mm!
@@ -725,7 +700,9 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             //https://github.com/cms-sw/cmssw/blob/master/SimMuon/RPCDigitizer/src/RPCSynchronizer.cc#L58-L61
             //RPCSimSetUp* simsetup = this->getRPCSimSetUp();
             //const RPCGeometry* geometry = simsetup->getGeometry();
+            //float timeref = theSimSetUp->getTime(rpc_id.rawId());
             //float timeref = getTimeRef(rpc_id.rawId());
+            //float timeref = getTimeRef(rpc_id);
             //cout << timeref << endl;
 
             //cout << links.begin()->getTimeOfFlight() << " ";
@@ -858,16 +835,7 @@ void
 DTRPCTiming::endJob(){
 
   /*
-  if (b_ME31NDigis_Total != 0 && b_ME41NDigis_Total != 0){
-    for (int i=0; i<25; i++){
-      for (int j=0; j<25; j++){
-        h_MatchedME31->SetBinContent(i+1,j+1,ME31[i][j]/b_ME31NDigis_Total*100);
-        h_MatchedME41->SetBinContent(i+1,j+1,ME41[i][j]/b_ME41NDigis_Total*100);  
-      }
-    } 
-  }
-
-  //tree->Fill();  
+  tree->Fill();  
 
   cout << "Including simhit" << endl;
   cout << "matched ratio at 13cm * 9cm ME31 " << ME31[12][8]/b_ME31NDigis_Total*100 << endl;
@@ -875,16 +843,6 @@ DTRPCTiming::endJob(){
 
   cout << "\nPure Total # of Digis: ME31 " << pure_ME31NDigis_Total << ":: ME41 " << pure_ME41NDigis_Total << endl;
   cout << "simmatching Total # of Digis: ME31 " << b_ME31NDigis_Total << ":: ME41 " << b_ME41NDigis_Total << endl;
-
-
-  if (pure_ME31NDigis_Total != 0 && pure_ME41NDigis_Total != 0){
-    for (int i=0; i<25; i++){
-      for (int j=0; j<25; j++){
-        h_RatioME31->SetBinContent(i+1,j+1,ME31[i][j]/pure_ME31NDigis_Total*100);
-        h_RatioME41->SetBinContent(i+1,j+1,ME41[i][j]/pure_ME41NDigis_Total*100);  
-      }
-    }
-  }
   */
 
   for (int k=0; k<200; k++) {

@@ -715,6 +715,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
               if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
               h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
               h_RPCUpdatedTimeRes->Fill(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
+              //cout << rpcIt->corrTime() << " ";
             }
           }
         }

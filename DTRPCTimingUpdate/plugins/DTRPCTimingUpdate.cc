@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    RPC-DTTrigger/DTUpdate
-// Class:      DTUpdate
+// Package:    RPC-DTTrigger/DTRPCTimingUpdate
+// Class:      DTRPCTimingUpdate
 // 
-/**\class DTUpdate DTUpdate.cc RPC-DTTrigger/DTUpdate/plugins/DTUpdate.cc
+/**\class DTRPCTimingUpdate DTRPCTimingUpdate.cc RPC-DTTrigger/DTRPCTimingUpdate/plugins/DTRPCTimingUpdate.cc
 
  Description: [one line class summary]
 
@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Jiwon Park
-//         Created:  Sat, 26 Oct 2019 11:39:59 GMT
+//         Created:  Thu, 09 Jan 2020 04:46:39 GMT
 //
 //
 
@@ -23,36 +23,39 @@
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/stream/EDProducer.h"
-
 #include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
-
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
+#include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/RPCRecHit/interface/RPCRecHit.h"
+#include "DataFormats/RPCRecHit/interface/RPCRecHitCollection.h"
 
-//
-// class declaration
-//
+using namespace edm;
 
-class DTUpdate : public edm::stream::EDProducer<> {
-   public:
-      explicit DTUpdate(const edm::ParameterSet&);
-      ~DTUpdate();
+class DTRPCTimingUpdate : public edm::stream::EDProducer<> {
+  public:
+    explicit DTRPCTimingUpdate(const edm::ParameterSet&);
+    ~DTRPCTimingUpdate();
 
-      static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
-   private:
-      virtual void beginStream(edm::StreamID) override;
-      virtual void produce(edm::Event&, const edm::EventSetup&) override;
-      virtual void endStream() override;
+  private:
+    virtual void beginStream(edm::StreamID) override;
+    virtual void produce(edm::Event&, const edm::EventSetup&) override;
+    virtual void endStream() override;
 
-      //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
-      //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
-      //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
-      //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
+    //virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
+    //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
+    //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
+    //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
-      // ----------member data ---------------------------
+    //edm::EDGetTokenT<MuonDigiCollection<RPCDetId,RPCDigi>> src_;
+    edm::EDGetTokenT<RPCRecHitCollection> src_;
+    edm::Handle<RPCRecHitCollection> rpcRecHits;
+
 };
 
 //
@@ -67,8 +70,9 @@ class DTUpdate : public edm::stream::EDProducer<> {
 //
 // constructors and destructor
 //
-DTUpdate::DTUpdate(const edm::ParameterSet& iConfig)
+DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig)
 {
+  src_ = consumes<RPCRecHitCollection>(edm::InputTag( iConfig.getParameter<edm::InputTag>("src") ));
    //register your products
 /* Examples
    produces<ExampleData2>();
@@ -84,7 +88,7 @@ DTUpdate::DTUpdate(const edm::ParameterSet& iConfig)
 }
 
 
-DTUpdate::~DTUpdate()
+DTRPCTimingUpdate::~DTRPCTimingUpdate()
 {
  
    // do anything here that needs to be done at destruction time
@@ -99,9 +103,8 @@ DTUpdate::~DTUpdate()
 
 // ------------ method called to produce the data  ------------
 void
-DTUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
+DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-   using namespace edm;
 /* This is an event example
    //Read 'ExampleData' from the Event
    Handle<ExampleData> pIn;
@@ -122,19 +125,19 @@ DTUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 // ------------ method called once each stream before processing any runs, lumis or events  ------------
 void
-DTUpdate::beginStream(edm::StreamID)
+DTRPCTimingUpdate::beginStream(edm::StreamID)
 {
 }
 
 // ------------ method called once each stream after processing all runs, lumis and events  ------------
 void
-DTUpdate::endStream() {
+DTRPCTimingUpdate::endStream() {
 }
 
 // ------------ method called when starting to processes a run  ------------
 /*
 void
-DTUpdate::beginRun(edm::Run const&, edm::EventSetup const&)
+DTRPCTimingUpdate::beginRun(edm::Run const&, edm::EventSetup const&)
 {
 }
 */
@@ -142,7 +145,7 @@ DTUpdate::beginRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when ending the processing of a run  ------------
 /*
 void
-DTUpdate::endRun(edm::Run const&, edm::EventSetup const&)
+DTRPCTimingUpdate::endRun(edm::Run const&, edm::EventSetup const&)
 {
 }
 */
@@ -150,7 +153,7 @@ DTUpdate::endRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when starting to processes a luminosity block  ------------
 /*
 void
-DTUpdate::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+DTRPCTimingUpdate::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
@@ -158,14 +161,14 @@ DTUpdate::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup cons
 // ------------ method called when ending the processing of a luminosity block  ------------
 /*
 void
-DTUpdate::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+DTRPCTimingUpdate::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
  
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void
-DTUpdate::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+DTRPCTimingUpdate::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   //The following says we do not know what parameters are allowed so do no validation
   // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
@@ -174,4 +177,4 @@ DTUpdate::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
 }
 
 //define this as a plug-in
-DEFINE_FWK_MODULE(DTUpdate);
+DEFINE_FWK_MODULE(DTRPCTimingUpdate);

@@ -2,13 +2,13 @@
 #include "FWCore/TestProcessor/interface/TestProcessor.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
-static constexpr auto s_tag = "[DTUpdate]";
+static constexpr auto s_tag = "[DTRPCTimingUpdate]";
 
-TEST_CASE("Standard checks of DTUpdate", s_tag) {
+TEST_CASE("Standard checks of DTRPCTimingUpdate", s_tag) {
   const std::string baseConfig{
 R"_(from FWCore.TestProcessor.TestProcess import *
 process = TestProcess()
-process.toTest = cms.EDProducer("DTUpdate"
+process.toTest = cms.EDProducer("DTRPCTimingUpdate"
 #necessary configuration parameters
  )
 process.moduleToTest(process.toTest)

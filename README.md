@@ -15,8 +15,13 @@ git remote update
 git checkout -t devel/dtrpc_devel
 scram b -j5
 
+* Run analyzer
 cd RPC-DTTrigger/RPCRecHitDTProducer/
 cmsRun RPCRecHitDTProducer_cfg.py #Create sample rootfile from the MiniADO in eos
 cd ../DTRPCTiming/test
 cmsRun rpctest_cfg.py #input file path may be different
+
+* Run producer
+cd RPC-DTTrigger/DTRPCTimingUpdate/python
+cmsRun dtrpcTimeUpdate_cfg.py
 ```

@@ -33,8 +33,6 @@ process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
 from RecoLocalMuon.RPCRecHit.rpcRecHits_cfi import rpcRecHits
 process.rpcRecHits = rpcRecHits
 
-process.rpcRecHits.rpcDigiLabel = cms.InputTag("simMuonRPCDigis")
-
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 #process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10) )
 

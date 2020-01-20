@@ -5,6 +5,31 @@ process = cms.Process("DTRPC")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
+
+# import of standard configurations
+process.load('Configuration.StandardSequences.Services_cff')
+process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
+process.load('FWCore.MessageService.MessageLogger_cfi')
+process.load('Configuration.EventContent.EventContent_cff')
+process.load('SimGeneral.MixingModule.mixNoPU_cfi')
+process.load('Configuration.Geometry.GeometryExtended2023D38Reco_cff')
+process.load('Configuration.Geometry.GeometryExtended2023D38_cff')
+process.load('Configuration.StandardSequences.MagneticField_cff')
+process.load('Configuration.StandardSequences.Generator_cff')
+process.load('IOMC.EventVertexGenerators.VtxSmearedHLLHC_cfi')
+process.load('GeneratorInterface.Core.genFilterSummary_cff')
+process.load('Configuration.StandardSequences.SimIdeal_cff')
+process.load('Configuration.StandardSequences.EndOfProcess_cff')
+process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+from Configuration.AlCa.GlobalTag import GlobalTag
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
+
+# run the local reco on the flight 
+process.load('RecoLocalMuon.Configuration.RecoLocalMuon_cff')
+process.rpcRecHits.rpcDigiLabel = cms.InputTag('simMuonRPCDigis')
+process.dt1DRecHits.dtDigiLabel = "simMuonDTDigis"
+process.p = cms.Path(process.rpcRecHits * process.dt1DRecHits * process.dt4DSegments)
 
 process.source = cms.Source("PoolSource",
   fileNames = cms.untracked.vstring(
@@ -13,8 +38,8 @@ process.source = cms.Source("PoolSource",
 )
 
 process.DTRPCTimingUpdate = cms.EDProducer('DTRPCTimingUpdate',
-  src = cms.InputTag('simMuonRPCDigis')
-
+  src = cms.InputTag('simMuonRPCDigis'),
+  dt4DSegments = cms.InputTag('dt4DSegments','','')
 )
 
 process.out = cms.OutputModule("PoolOutputModule",

@@ -29,9 +29,18 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 
+#include "DataFormats/DTRecHit/interface/DTRecSegment4D.h"
+#include "DataFormats/DTRecHit/interface/DTRecSegment4DCollection.h"
 #include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/MuonDetId/interface/DTChamberId.h"
 #include "DataFormats/RPCRecHit/interface/RPCRecHit.h"
 #include "DataFormats/RPCRecHit/interface/RPCRecHitCollection.h"
+
+#include "Geometry/CommonDetUnit/interface/GeomDet.h"
+#include "Geometry/CommonTopologies/interface/RectangularStripTopology.h"
+#include "Geometry/DTGeometry/interface/DTGeometry.h"
+#include "Geometry/RPCGeometry/interface/RPCGeometry.h"
+#include "Geometry/Records/interface/MuonGeometryRecord.h"
 
 using namespace edm;
 
@@ -54,7 +63,6 @@ class DTRPCTimingUpdate : public edm::stream::EDProducer<> {
 
     //edm::EDGetTokenT<MuonDigiCollection<RPCDetId,RPCDigi>> src_;
     edm::EDGetTokenT<RPCRecHitCollection> src_;
-    edm::Handle<RPCRecHitCollection> rpcRecHits;
 
 };
 
@@ -70,9 +78,9 @@ class DTRPCTimingUpdate : public edm::stream::EDProducer<> {
 //
 // constructors and destructor
 //
-DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig)
+DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig):
+  src_(consumes<RPCRecHitCollection>(iConfig.getParameter<edm::InputTag>("src") ))
 {
-  src_ = consumes<RPCRecHitCollection>(edm::InputTag( iConfig.getParameter<edm::InputTag>("src") ));
    //register your products
 /* Examples
    produces<ExampleData2>();
@@ -83,8 +91,7 @@ DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig)
    //if you want to put into the Run
    produces<ExampleData2,InRun>();
 */
-   //now do what ever other initialization is needed
-  
+  produces<RPCRecHitCollection>(); 
 }
 
 
@@ -120,7 +127,27 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
    ESHandle<SetupData> pSetup;
    iSetup.get<SetupRecord>().get(pSetup);
 */
+  edm::Handle<RPCRecHitCollection> rpcRecHits;
+  iEvent.getByToken(src_, rpcRecHits);
+  std::unique_ptr<RPCRecHitCollection> out(new RPCRecHitCollection());
  
+  RPCDetId tmp_id;
+  std::vector<RPCRecHit> vec_hits;
+  for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
+    RPCRecHit aRecHit = *rpcIt;
+    RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
+    aRecHit.setCorrTime(999);
+
+    if(tmp_id != rpc_id){
+      if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
+      tmp_id = rpc_id;
+      vec_hits.clear();
+      vec_hits.push_back(aRecHit);
+    }
+    else vec_hits.push_back(aRecHit);
+  }
+  iEvent.put(std::move(out));
+
 }
 
 // ------------ method called once each stream before processing any runs, lumis or events  ------------
@@ -128,12 +155,10 @@ void
 DTRPCTimingUpdate::beginStream(edm::StreamID)
 {
 }
-
 // ------------ method called once each stream after processing all runs, lumis and events  ------------
 void
 DTRPCTimingUpdate::endStream() {
 }
-
 // ------------ method called when starting to processes a run  ------------
 /*
 void

@@ -25,31 +25,33 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
-# run the local reco on the flight 
-process.load('RecoLocalMuon.Configuration.RecoLocalMuon_cff')
-process.rpcRecHits.rpcDigiLabel = cms.InputTag('simMuonRPCDigis')
-process.dt1DRecHits.dtDigiLabel = "simMuonDTDigis"
-process.p = cms.Path(process.rpcRecHits * process.dt1DRecHits * process.dt4DSegments)
-
 process.source = cms.Source("PoolSource",
   fileNames = cms.untracked.vstring(
       'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
     )
 )
 
+# run the local reco on the flight
+process.load('RecoLocalMuon.Configuration.RecoLocalMuon_cff')
+process.rpcRecHits.rpcDigiLabel = cms.InputTag('simMuonRPCDigis')
+process.dt1DRecHits.dtDigiLabel = "simMuonDTDigis"
+process.p = cms.Path(process.rpcRecHits * process.dt1DRecHits * process.dt4DSegments)
+
+
 process.DTRPCTimingUpdate = cms.EDProducer('DTRPCTimingUpdate',
-  src = cms.InputTag('simMuonRPCDigis'),
+  #src = cms.InputTag('simMuonRPCDigis'),
+  src = cms.InputTag('rpcRecHits'),
   dt4DSegments = cms.InputTag('dt4DSegments','','')
 )
+process.p += process.DTRPCTimingUpdate
 
 process.out = cms.OutputModule("PoolOutputModule",
   fileName = cms.untracked.string('myOutputFile.root'),
   outputCommands = cms.untracked.vstring('drop *',
-    'keep *_simMuonRPCDigis__*'
+    'keep *_simMuonRPCDigis__*',
+    'keep *_rpcRecHits__*',
+    'keep *_dt4DSegments__*',
+    'keep *_DTRPCTimingUpdate__*'
   )
 )
-
-
-process.p = cms.Path(process.DTRPCTimingUpdate)
-
 process.e = cms.EndPath(process.out)

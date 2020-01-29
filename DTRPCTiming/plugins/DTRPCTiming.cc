@@ -712,7 +712,7 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             }
             else {
               //https://github.com/cms-sw/cmssw/blob/dc968f763c733222c535f6fe1de69c0e2082ad7c/TrackPropagation/RungeKutta/src/PathToPlane2Order.cc#L51
-              if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() > 15) continue;
+              if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() < 15) continue;
               h_RPCTimeRes->Fill(links.begin()->getTimeOfFlight() - rpcIt->time());
               h_RPCUpdatedTimeRes->Fill(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
               //cout << rpcIt->corrTime() << " ";

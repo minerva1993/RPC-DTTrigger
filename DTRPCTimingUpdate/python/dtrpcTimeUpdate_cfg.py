@@ -1,5 +1,10 @@
 import FWCore.ParameterSet.Config as cms
 
+from FWCore.ParameterSet.VarParsing import VarParsing
+options = VarParsing ('analysis')
+options.register('Labels', 1, VarParsing.multiplicity.singleton, VarParsing.varType.int, "1: 1DIGI, 4:4DIGI")
+options.parseArguments()
+
 process = cms.Process("DTRPC")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
@@ -39,9 +44,11 @@ process.p = cms.Path(process.rpcRecHits * process.dt1DRecHits * process.dt4DSegm
 
 
 process.DTRPCTimingUpdate = cms.EDProducer('DTRPCTimingUpdate',
-  #src = cms.InputTag('simMuonRPCDigis'),
   src = cms.InputTag('rpcRecHits'),
-  dt4DSegments = cms.InputTag('dt4DSegments','','')
+  rpcSimLinkLabel = cms.InputTag('simMuonRPCDigis','RPCDigiSimLink'),
+  dt4DSegments = cms.InputTag('dt4DSegments','',''),
+  DTsimHitLabel = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
+  label = cms.untracked.int32(options.Labels)
 )
 process.p += process.DTRPCTimingUpdate
 

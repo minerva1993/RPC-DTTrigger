@@ -154,6 +154,7 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   }
 
   std::unique_ptr<RPCRecHitCollection> out(new RPCRecHitCollection());
+  std::vector<RPCRecHit> vec_hits;
 
   //Ref of loop: https://github.com/cms-sw/cmssw/blob/266e21cfc9eb409b093e4cf064f4c0a24c6ac293/RecoLocalMuon/DTSegment/src/DTSegment4DT0Corrector.cc
   DTRecSegment4DCollection::id_iterator dtChamberId;
@@ -194,7 +195,6 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       bool dt_simmatched = false;
 
       for (PSimHitContainer::const_iterator DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
-          continue;
         cptype = DTsimIt->particleType();
         DTChamberId dtsim_id = DTsimIt->detUnitId();
 
@@ -211,7 +211,6 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
       /* RPC RecHit Loop */
       RPCDetId tmp_id;
-      std::vector<RPCRecHit> vec_hits;
       for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
 
         RPCRecHit aRecHit = *rpcIt;
@@ -304,23 +303,24 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 
             //std::cout << links.begin()->getTimeOfFlight() << " ";
-            if (abs(links.begin()->getParticleType()) == 13) {
-              if (links.begin()->getBx() != 0 or links.begin()->getMomentumAtEntry().perp() < 15) continue;
-              aRecHit.setCorrTime(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
+            if (abs(links.begin()->getParticleType()) == 13 and links.begin()->getBx() == 0 and links.begin()->getMomentumAtEntry().perp() > 15) {
+              if (aRecHit.corrTime() != 0.) continue;
+              //aRecHit.setCorrTime(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
+              aRecHit.setCorrTime(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed);
             }
             else aRecHit.setCorrTime(-1);
-          }
 
-          if(tmp_id != rpc_id){
-            if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
-            tmp_id = rpc_id;
-            vec_hits.clear();
-            vec_hits.push_back(aRecHit);
+            if(tmp_id != rpc_id){
+              if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
+              tmp_id = rpc_id;
+              vec_hits.clear();
+              vec_hits.push_back(aRecHit);
+            }
+            else vec_hits.push_back(aRecHit);
           }
-          else vec_hits.push_back(aRecHit);
 
         }//Window cut
-      }
+      }//Rechit loop
     }
   }
   iEvent.put(std::move(out));

@@ -64,6 +64,9 @@ class DTRPCTimingUpdate : public edm::stream::EDProducer<> {
     edm::EDGetTokenT<RPCRecHitCollection> src_;
     edm::EDGetTokenT<DTRecSegment4DCollection> dt4DSegments_;
 
+    GlobalPoint getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const;
+    GlobalPoint getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const;
+
     //GEANT4 simhits
     edm::EDGetTokenT<edm::PSimHitContainer> DTsimHitToken_;
     edm::EDGetTokenT<edm::DetSetVector<RPCDigiSimLink>> RPCdigisimlinkToken_;
@@ -73,6 +76,27 @@ class DTRPCTimingUpdate : public edm::stream::EDProducer<> {
 };
 
 /* Member Functions */
+GlobalPoint
+DTRPCTimingUpdate::getDTGlobalPosition(DTChamberId rawId, const DTRecSegment4D& dt4DIt) const{
+
+  DTChamberId dtId = DTChamberId(rawId);
+  const LocalPoint& dt_lp = dt4DIt.localPosition();
+  const GlobalPoint& dt_gp = dtGeo->idToDet(dtId)->surface().toGlobal(dt_lp);
+
+  return dt_gp;
+
+}
+
+GlobalPoint
+DTRPCTimingUpdate::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
+
+  RPCDetId rpc_id = RPCDetId(rpcId);
+  const LocalPoint& rpc_lp = rpcIt.localPosition();
+  const GlobalPoint& rpc_gp = rpcGeo->idToDet(rpc_id)->surface().toGlobal(rpc_lp);
+ 
+  return rpc_gp;
+
+}
 
 DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig):
   src_(consumes<RPCRecHitCollection>(iConfig.getParameter<edm::InputTag>("src") )),
@@ -119,79 +143,83 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   std::unique_ptr<RPCRecHitCollection> out(new RPCRecHitCollection());
   std::vector<RPCRecHit> vec_hits;
 
+  //Ref of loop: https://github.com/cms-sw/cmssw/blob/266e21cfc9eb409b093e4cf064f4c0a24c6ac293/RecoLocalMuon/DTSegment/src/DTSegment4DT0Corrector.cc
+  DTRecSegment4DCollection::id_iterator dtChamberId;
+  for (dtChamberId = all4DSegments->id_begin(); dtChamberId != all4DSegments->id_end(); ++dtChamberId) {
 
-  // RPC RecHit Loop
-  RPCDetId tmp_id;
-  for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
+    GlobalPoint gp_dt;
 
-    RPCRecHit aRecHit = *rpcIt;
-    RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
-    if (rpc_id.region() != 0) continue; //skip the barrels
+    numDigi_switch = label_;
+    DTRecSegment4DCollection::range dtRange = all4DSegments->get(*dtChamberId);
+    if (numDigi_switch == 1){
+      dtRange.first++;
+      if (dtRange.first != dtRange.second) continue; //Check only 1 digi(segment) or not
+      dtRange.first--;
+    }
 
+    for (DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment) {
 
-    // DT Loop
-    //Ref of loop: https://github.com/cms-sw/cmssw/blob/266e21cfc9eb409b093e4cf064f4c0a24c6ac293/RecoLocalMuon/DTSegment/src/DTSegment4DT0Corrector.cc
-    DTRecSegment4DCollection::id_iterator dtChamberId;
-    for (dtChamberId = all4DSegments->id_begin(); dtChamberId != all4DSegments->id_end(); ++dtChamberId) {
-  
-      numDigi_switch = label_;
-      DTRecSegment4DCollection::range dtRange = all4DSegments->get(*dtChamberId);
-      if (numDigi_switch == 1){
-        dtRange.first++;
-        if (dtRange.first != dtRange.second) continue; //Check only 1 digi(segment) or not
-        dtRange.first--;
-      }
-  
-      for (DTRecSegment4DCollection::const_iterator dtSegment = dtRange.first; dtSegment != dtRange.second; ++dtSegment) {
-  
-        DTRecSegment4D tmpseg = *dtSegment;
-        if (!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
-        if (dtSegment->dimension() != 4) continue; //Check needed //MB4 doesn't have theta superlayer
+      DTRecSegment4D tmpseg = *dtSegment;
+      if (!tmpseg.hasZed()) continue; //Looking at the segment that has Z projection FIXME Check needed
+      if (dtSegment->dimension() != 4) continue; //Check needed //MB4 doesn't have theta superlayer
+      const DTChamberId dt_id = dtSegment->chamberId();
 
-        const DTChamberId dt_id = dtSegment->chamberId();
-        if (dt_id.station() != rpc_id.station()) continue; //Check only nearest station
- 
-        const LocalPoint& dt_lp = tmpseg.localPosition();
-        const LocalVector& dt_dir = tmpseg.localDirection();
-        const LocalError& dt_posErr = tmpseg.localPositionError();
-  
-        const GeomDet* gdet=dtGeo->idToDet(tmpseg.geographicalId());
-        const BoundPlane &DTSurface = gdet->surface();
-  
-        float Pos_xx = dt_posErr.xx();
-        float Pos_xy = dt_posErr.xy();
-        float Pos_yy = dt_posErr.yy();
-  
-        float Xo = dt_lp.x();
-        float Yo = dt_lp.y();
-        float Zo = dt_lp.z();
-        float dx = dt_dir.x();
-        float dy = dt_dir.y();
-        float dz = dt_dir.z();
-  
-        int cptype = 0;
-        bool dt_simmatched = false;
-  
-        for (PSimHitContainer::const_iterator DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
-          cptype = DTsimIt->particleType();
-          DTChamberId dtsim_id = DTsimIt->detUnitId();
-  
-          if (abs(cptype) != 13) continue;
-          if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
-            DTSuperLayerId dt_slID(DTsimIt->detUnitId());
-            int superlayer = dt_slID.superlayer();
-  
-            dt_simmatched = true; 
-          }
+      gp_dt = GlobalPoint(0.0,0.0,0.0);
+      gp_dt = getDTGlobalPosition(dt_id, tmpseg);
+
+      const LocalPoint& dt_lp = tmpseg.localPosition();
+      const LocalVector& dt_dir = tmpseg.localDirection();
+      const LocalError& dt_posErr = tmpseg.localPositionError();
+
+      const GeomDet* gdet=dtGeo->idToDet(tmpseg.geographicalId());
+      const BoundPlane &DTSurface = gdet->surface();
+
+      float Pos_xx = dt_posErr.xx();
+      float Pos_xy = dt_posErr.xy();
+      float Pos_yy = dt_posErr.yy();
+
+      int cptype = 0;
+      bool dt_simmatched = false;
+
+      for (PSimHitContainer::const_iterator DTsimIt = DTsimHit->begin(); DTsimIt != DTsimHit->end(); DTsimIt++) {
+        cptype = DTsimIt->particleType();
+        DTChamberId dtsim_id = DTsimIt->detUnitId();
+
+        if (abs(cptype) != 13) continue;
+        if (dt_id.wheel() == dtsim_id.wheel() && dt_id.station() == dtsim_id.station() && dt_id.sector() == dtsim_id.sector()){
+          DTSuperLayerId dt_slID(DTsimIt->detUnitId());
+          int superlayer = dt_slID.superlayer();
+
+          dt_simmatched = true; 
         }
-  
-        if (!dt_simmatched) continue;
+      }
+
+      if (!dt_simmatched) continue;
+
+      /* RPC RecHit Loop */
+      RPCDetId tmp_id;
+      for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
+
+        RPCRecHit aRecHit = *rpcIt;
+        RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
+        if (rpc_id.region() != 0) continue; //skip the barrels
+        if (rpc_id.station() != dt_id.station()) continue; //Check only nearest station
+
+        GlobalPoint gp_rpc(0.0,0.0,0.0);
+        gp_rpc = getRPCGlobalPosition(rpc_id, aRecHit);
 
         const BoundPlane& RPCSurface = rpcGeo->idToDet(rpc_id)->surface();
         GlobalPoint CenterPointRollGlobal = RPCSurface.toGlobal(LocalPoint(0,0,0));
         LocalPoint CenterRollinDTFrame = DTSurface.toLocal(CenterPointRollGlobal);
         float D = CenterRollinDTFrame.z();
         if (abs(D) > 200) continue;
+
+        float Xo = dt_lp.x();
+        float Yo = dt_lp.y();
+        float Zo = dt_lp.z();
+        float dx = dt_dir.x();
+        float dy = dt_dir.y();
+        float dz = dt_dir.z();
 
         LocalPoint lp_dtframe(Xo + dx*D/dz, Yo + dy*D/dz, D);
         GlobalPoint dt_gp_ext = dtGeo->idToDet(dt_id)->surface().toGlobal(lp_dtframe);
@@ -279,19 +307,17 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
           }
 
         }//Window cut
-      }
+          //test if recHits are correctly filled in DT loop
+          //if(tmp_id != rpc_id){
+          //  if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
+          //  tmp_id = rpc_id;
+          //  vec_hits.clear();
+          //  vec_hits.push_back(aRecHit);
+          //}
+          //else vec_hits.push_back(aRecHit);
+      }//Rechit loop
     }
-
-    ////test if recHits are correctly filled in  loop
-    //if(tmp_id != rpc_id){
-    //  if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
-    //  tmp_id = rpc_id;
-    //  vec_hits.clear();
-    //  vec_hits.push_back(aRecHit);
-    //}
-    //else vec_hits.push_back(aRecHit);
-
-  }//Rechit loop
+  }
   iEvent.put(std::move(out));
 
 }

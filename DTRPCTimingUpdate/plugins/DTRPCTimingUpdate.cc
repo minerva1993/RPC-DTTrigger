@@ -267,7 +267,8 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
               //aRecHit.setCorrTime(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
               aRecHit.setCorrTime(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed);
             }
-            else aRecHit.setCorrTime(-1);
+            //else aRecHit.setCorrTime(-99);
+            else continue;
 
             if(tmp_id != rpc_id){
               if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());

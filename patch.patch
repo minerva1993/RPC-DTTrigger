@@ -1,0 +1,86 @@
+diff --git a/DataFormats/RPCRecHit/interface/RPCRecHit.h b/DataFormats/RPCRecHit/interface/RPCRecHit.h
+index a1414803030..bad05e8ab55 100644
+--- a/DataFormats/RPCRecHit/interface/RPCRecHit.h
++++ b/DataFormats/RPCRecHit/interface/RPCRecHit.h
+@@ -124,6 +124,14 @@ class RPCRecHit : public RecHit2DLocalPos {
+     return theTimeError;
+   }
+ 
++  float corrTime() const {
++    return theCorrTime;
++  }
++
++  void setCorrTime(float newTime) {
++    theCorrTime = newTime;
++  }
++
+   /// Comparison operator, based on the rpcId and the digi time
+   bool operator==(const RPCRecHit& hit) const;
+ 
+@@ -136,6 +144,7 @@ class RPCRecHit : public RecHit2DLocalPos {
+   LocalPoint theLocalPosition;
+   LocalError theLocalError;
+   float theTime, theTimeError;
++  float theCorrTime;
+ 
+ };
+ #endif
+diff --git a/DataFormats/RPCRecHit/src/RPCRecHit.cc b/DataFormats/RPCRecHit/src/RPCRecHit.cc
+index d6c6b512342..fd0c39822d0 100644
+--- a/DataFormats/RPCRecHit/src/RPCRecHit.cc
++++ b/DataFormats/RPCRecHit/src/RPCRecHit.cc
+@@ -10,20 +10,20 @@
+ 
+ RPCRecHit::RPCRecHit(const RPCDetId& rpcId, int bx) :  RecHit2DLocalPos(rpcId),
+   theRPCId(rpcId), theBx(bx),theFirstStrip(99),theClusterSize(99), theLocalPosition(), theLocalError(),
+-  theTime(0), theTimeError(-1)
++  theTime(0), theTimeError(-1), theCorrTime(0)
+ {
+ }
+ 
+ RPCRecHit::RPCRecHit() :  RecHit2DLocalPos(),
+   theRPCId(), theBx(99),theFirstStrip(99),theClusterSize(99), theLocalPosition(), theLocalError(),
+-  theTime(0), theTimeError(-1)
++  theTime(0), theTimeError(-1), theCorrTime(0)
+ {
+ }
+ 
+ 
+ RPCRecHit::RPCRecHit(const RPCDetId& rpcId, int bx, const LocalPoint& pos) :  RecHit2DLocalPos(rpcId),
+   theRPCId(rpcId), theBx(bx), theFirstStrip(99),theClusterSize(99), theLocalPosition(pos),
+-  theTime(0), theTimeError(-1)
++  theTime(0), theTimeError(-1), theCorrTime(0)
+ {
+   float stripResolution = 3.0 ; //cm  this sould be taken from trimmed cluster size times strip size 
+                                  //    taken out from geometry service i.e. topology
+@@ -39,7 +39,7 @@ RPCRecHit::RPCRecHit(const RPCDetId& rpcId,
+                     const LocalPoint& pos,
+                     const LocalError& err) :  RecHit2DLocalPos(rpcId),
+   theRPCId(rpcId), theBx(bx),theFirstStrip(99), theClusterSize(99), theLocalPosition(pos), theLocalError(err),
+-  theTime(0), theTimeError(-1)
++  theTime(0), theTimeError(-1), theCorrTime(0)
+ {
+ }
+ 
+@@ -52,7 +52,7 @@ RPCRecHit::RPCRecHit(const RPCDetId& rpcId,
+                     const LocalPoint& pos,
+                     const LocalError& err) :  RecHit2DLocalPos(rpcId),
+   theRPCId(rpcId), theBx(bx),theFirstStrip(firstStrip), theClusterSize(clustSize), theLocalPosition(pos), theLocalError(err),
+-  theTime(0), theTimeError(-1)
++  theTime(0), theTimeError(-1), theCorrTime(0)
+ {
+ }
+ 
+diff --git a/DataFormats/RPCRecHit/src/classes_def.xml b/DataFormats/RPCRecHit/src/classes_def.xml
+index 622fffe7fad..0ba776fa04f 100644
+--- a/DataFormats/RPCRecHit/src/classes_def.xml
++++ b/DataFormats/RPCRecHit/src/classes_def.xml
+@@ -1,6 +1,7 @@
+ <lcgdict>
+ <selection>
+-  <class name="RPCRecHit" splitLevel="0" ClassVersion="12">
++  <class name="RPCRecHit" splitLevel="0" ClassVersion="13">
++   <version ClassVersion="13" checksum="4259551535"/>
+    <version ClassVersion="12" checksum="1466455177"/>
+    <version ClassVersion="11" checksum="2419885627"/>
+    <version ClassVersion="10" checksum="247761974"/>

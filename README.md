@@ -1,15 +1,10 @@
-DT + RPC study for improving RPC timing resolution.
+DT + RPC study for improving RPC timing resolution. First, follow the recipes from DTNtuple repo: https://github.com/battibass/DTNtuples
 
 *Setup
 ```{.Bash}
-export SCRAM_ARCH=slc7_amd64_gcc700
-cmsrel CMSSW_10_6_1_patch2
-cd CMSSW_10_6_1_patch2/src
-cmsenv
-git cms-init
+#First follow here: https://github.com/battibass/DTNtuples
 git clone git@github.com:minerva1993/RPC-DTTrigger.git
 git cms-addpkg DataFormats/RPCRecHit
-git cms-addpkg SimMuon/RPCDigitizer
 git remote add devel git@github.com:minerva1993/cmssw.git
 git remote update
 git checkout -t devel/dtrpc_devel

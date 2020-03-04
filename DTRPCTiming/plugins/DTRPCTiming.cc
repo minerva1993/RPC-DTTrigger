@@ -42,14 +42,10 @@
 
 #include "SimDataFormats/TrackingHit/interface/PSimHitContainer.h"
 #include "SimDataFormats/RPCDigiSimLink/interface/RPCDigiSimLink.h"
-#include "SimMuon/RPCDigitizer/src/RPCSimSetUp.h"
-#include "SimMuon/RPCDigitizer/src/RPCSim.h"
 #include "SimTracker/TrackerHitAssociation/interface/TrackerHitAssociator.h"
 
 using namespace edm;
 using namespace std;
-
-class RPCSimSetUp;
 
 class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
   public:
@@ -61,14 +57,11 @@ class DTRPCTiming : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
     //https://github.com/cms-sw/cmssw/blob/master/L1Trigger/L1TMuon/interface/GeometryTranslator.h
     const DTGeometry& getDTGeometry() const { return *dtGeo; }
     //https://github.com/cms-sw/cmssw/blob/2c91040e71a5447c0e161e80ce914260713b8317/SimMuon/RPCDigitizer/src/RPCSynchronizer.h#L44
-    RPCSimSetUp* getRPCSimSetUp() { return theSimSetUp; }
 
   private:
     virtual void beginJob() override;
     virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
     virtual void endJob() override;
-
-    RPCSimSetUp* theSimSetUp;
 
     TTree *tree;
     TH1D *EventInfo;
@@ -194,16 +187,6 @@ DTRPCTiming::getRPCGlobalPosition(RPCDetId rpcId, const RPCRecHit& rpcIt) const{
   const GlobalPoint& rpc_gp = rpcGeo->idToDet(rpc_id)->surface().toGlobal(rpc_lp);
  
   return rpc_gp;
-
-}
-
-float DTRPCTiming::getTimeRef(unsigned int rawId) {
-
-  RPCSimSetUp* simsetup = this->getRPCSimSetUp();
-  //const RPCGeometry* geometry = simsetup->getGeometry();
-  float timeref = simsetup->getTime(rawId);
-
-  return timeref;
 
 }
 
@@ -696,14 +679,6 @@ DTRPCTiming::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             //region == 0: distanceFromEdge = half_stripL + simHitPos.y() (RPCSynchronizer.cc)
             //This suggests readout at -y end!
             float prop_length = stripLenHalf + lp_extrapol.y();
-
-            //https://github.com/cms-sw/cmssw/blob/master/SimMuon/RPCDigitizer/src/RPCSynchronizer.cc#L58-L61
-            //RPCSimSetUp* simsetup = this->getRPCSimSetUp();
-            //const RPCGeometry* geometry = simsetup->getGeometry();
-            //float timeref = theSimSetUp->getTime(rpc_id.rawId());
-            //float timeref = getTimeRef(rpc_id.rawId());
-            //float timeref = getTimeRef(rpc_id);
-            //cout << timeref << endl;
 
             //cout << links.begin()->getTimeOfFlight() << " ";
             if (abs(links.begin()->getParticleType()) != 13) {

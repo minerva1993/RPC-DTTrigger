@@ -8,8 +8,8 @@ options.parseArguments()
 process = cms.Process("DTRPC")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
-
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.MessageLogger.cerr.FwkReport.reportEvery = 5000
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(True) )
 
 # import of standard configurations
@@ -32,7 +32,9 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
 process.source = cms.Source("PoolSource",
   fileNames = cms.untracked.vstring(
-      'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      #'root://cms-xrdr.private.lo:2094///xrd/store/mc/PhaseIITDRSpring19DR/Mu_FlatPt2to100-pythia8-gun/GEN-SIM-DIGI-RAW/PU200_106X_upgrade2023_realistic_v3-v2/70000/FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      options.inputFiles
     )
 )
 

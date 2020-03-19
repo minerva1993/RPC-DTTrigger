@@ -52,15 +52,19 @@ process.DTRPCTimingUpdate = cms.EDProducer('DTRPCTimingUpdate',
   DTsimHitLabel = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
   label = cms.untracked.int32(options.Labels)
 )
-process.p += process.DTRPCTimingUpdate
+#process.p += process.DTRPCTimingUpdate
 
 process.out = cms.OutputModule("PoolOutputModule",
-  fileName = cms.untracked.string('myOutputFile.root'),
+  fileName = cms.untracked.string('myOutputFile_skimmed.root'),
   outputCommands = cms.untracked.vstring('drop *',
     'keep *_simMuonRPCDigis__*',
     'keep *_rpcRecHits__*',
     'keep *_dt4DSegments__*',
-    'keep *_DTRPCTimingUpdate__*'
+    'keep *_DTRPCTimingUpdate__*',
+    'keep *_simMuonDTDigis__*',
+    'keep *_genParticles_*_*',
+    'keep *_addPileupInfo_*_*',
+    'keep *_simDtTriggerPrimitiveDigis_*_*'
   )
 )
 process.e = cms.EndPath(process.out)

@@ -38,12 +38,9 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_1.root',
-       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_2.root',
-       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_3.root',
-       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_4.root',
-       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/CMSSW_10_6_1_patch2/src/RPC-DTTrigger/RPCRecHitDTProducer/test_5.root',
-      'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      #'file:/xrootd/store/mc/PhaseIITDRSpring19DR/Mu_FlatPt2to100-pythia8-gun/GEN-SIM-DIGI-RAW/PU200_106X_upgrade2023_realistic_v3-v2/70000/218FAAE8-F167-8143-81AB-52705F65CC84.root'
+      options.inputFiles
     )
 )
 

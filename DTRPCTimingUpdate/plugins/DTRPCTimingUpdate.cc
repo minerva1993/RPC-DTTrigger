@@ -82,7 +82,8 @@ DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig):
   label_(iConfig.getUntrackedParameter<int>("label"))
 {
 
-  produces<RPCRecHitCollection>(); 
+  produces<RPCRecHitCollection>().setBranchAlias("out");
+  produces<RPCRecHitCollection>("all").setBranchAlias("out_all");
 
 }
 
@@ -118,6 +119,8 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   std::unique_ptr<RPCRecHitCollection> out(new RPCRecHitCollection());
   std::vector<RPCRecHit> vec_hits;
+  std::unique_ptr<RPCRecHitCollection> out_all(new RPCRecHitCollection());
+  std::vector<RPCRecHit> vec_hits_all;
 
 
   // RPC RecHit Loop
@@ -125,6 +128,13 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
   for (RPCRecHitCollection::const_iterator rpcIt = rpcRecHits->begin(); rpcIt != rpcRecHits->end(); rpcIt++) {
 
     RPCRecHit aRecHit = *rpcIt;
+    LocalError tmp_err1(-99.,-99.,-99.);//Set dummy number for later
+    aRecHit.setError(tmp_err1);
+
+    RPCRecHit allRecHit = *rpcIt;
+    LocalError tmp_err2(-99.,-99.,-99.);//Set dummy number for later
+    aRecHit.setError(tmp_err2);
+
     RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
     if (rpc_id.region() != 0) continue; //skip the barrels
 
@@ -258,19 +268,23 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
             float stripLenHalf = top_->stripLength() / 2;
             //region == 0: distanceFromEdge = half_stripL + simHitPos.y() (RPCSynchronizer.cc)
             //This suggests readout at -y end!
-            float prop_length = stripLenHalf + lp_extrapol.y();
+            float prop_length = stripLenHalf - lp_extrapol.y();
 
 
             //std::cout << links.begin()->getTimeOfFlight() << " ";
             if (abs(links.begin()->getParticleType()) == 13 and links.begin()->getBx() == 0 and links.begin()->getMomentumAtEntry().perp() > 15) {
               if (aRecHit.corrTime() != 0.) continue;
               //aRecHit.setCorrTime(links.begin()->getTimeOfFlight() - (rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed));
-              aRecHit.setCorrTime(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed);
+              //aRecHit.setCorrTime(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed);
+              aRecHit.setTimeAndError(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed, rpcIt->timeError());
+              aRecHit.setCorrTime(rpcIt->time());//Trick! swap time and corrTime
+              LocalError error(lp_extrapol.y(), aRecHit.localPositionError().xy(), aRecHit.localPositionError().yy());
+              aRecHit.setError(error);
             }
             //else aRecHit.setCorrTime(-99);
             else continue;
 
-            if(tmp_id != rpc_id){
+           if(tmp_id != rpc_id){
               if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
               tmp_id = rpc_id;
               vec_hits.clear();
@@ -283,17 +297,18 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       }
     }
 
-    ////test if recHits are correctly filled in  loop
-    //if(tmp_id != rpc_id){
-    //  if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
-    //  tmp_id = rpc_id;
-    //  vec_hits.clear();
-    //  vec_hits.push_back(aRecHit);
-    //}
-    //else vec_hits.push_back(aRecHit);
+    //test if recHits are correctly filled in  loop
+    if(tmp_id != rpc_id){
+      if(!vec_hits_all.empty()) out_all->put(rpc_id, vec_hits_all.begin(), vec_hits_all.end());
+      tmp_id = rpc_id;
+      vec_hits_all.clear();
+      vec_hits_all.push_back(allRecHit);
+    }
+    else vec_hits_all.push_back(allRecHit);
 
   }//Rechit loop
   iEvent.put(std::move(out));
+  iEvent.put(std::move(out_all), "all");
 
 }
 

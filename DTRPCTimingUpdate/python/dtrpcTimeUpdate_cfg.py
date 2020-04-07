@@ -33,8 +33,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 process.source = cms.Source("PoolSource",
   fileNames = cms.untracked.vstring(
       #'file:/afs/cern.ch/work/j/jipark/public/rpcDTTrigger/Mu_FlatPt2to100-pythia8-gun__PU200_106X_upgrade2023_realistic_v3-v2__FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
-      #'root://cms-xrdr.private.lo:2094///xrd/store/mc/PhaseIITDRSpring19DR/Mu_FlatPt2to100-pythia8-gun/GEN-SIM-DIGI-RAW/PU200_106X_upgrade2023_realistic_v3-v2/70000/FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
-      options.inputFiles
+      'root://cms-xrdr.private.lo:2094///xrd/store/mc/PhaseIITDRSpring19DR/Mu_FlatPt2to100-pythia8-gun/GEN-SIM-DIGI-RAW/PU200_106X_upgrade2023_realistic_v3-v2/70000/FFCFF986-ED0B-B74F-B253-C511D19B8249.root'
+      #options.inputFiles
     )
 )
 
@@ -52,7 +52,7 @@ process.DTRPCTimingUpdate = cms.EDProducer('DTRPCTimingUpdate',
   DTsimHitLabel = cms.untracked.InputTag('g4SimHits','MuonDTHits'),
   label = cms.untracked.int32(options.Labels)
 )
-#process.p += process.DTRPCTimingUpdate
+process.p += process.DTRPCTimingUpdate
 
 process.out = cms.OutputModule("PoolOutputModule",
   fileName = cms.untracked.string('myOutputFile_skimmed.root'),
@@ -60,7 +60,7 @@ process.out = cms.OutputModule("PoolOutputModule",
     'keep *_simMuonRPCDigis__*',
     'keep *_rpcRecHits__*',
     'keep *_dt4DSegments__*',
-    'keep *_DTRPCTimingUpdate__*',
+    'keep *_DTRPCTimingUpdate_*_*',
     'keep *_simMuonDTDigis__*',
     'keep *_genParticles_*_*',
     'keep *_addPileupInfo_*_*',

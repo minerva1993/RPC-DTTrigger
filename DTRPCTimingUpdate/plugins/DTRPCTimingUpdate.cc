@@ -83,6 +83,7 @@ DTRPCTimingUpdate::DTRPCTimingUpdate(const edm::ParameterSet& iConfig):
 {
 
   produces<RPCRecHitCollection>().setBranchAlias("out");
+  produces<RPCRecHitCollection>("nocorr").setBranchAlias("out_nocorr");
   produces<RPCRecHitCollection>("all").setBranchAlias("out_all");
 
 }
@@ -119,6 +120,8 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
 
   std::unique_ptr<RPCRecHitCollection> out(new RPCRecHitCollection());
   std::vector<RPCRecHit> vec_hits;
+  std::unique_ptr<RPCRecHitCollection> out_nocorr(new RPCRecHitCollection());
+  std::vector<RPCRecHit> vec_hits_nocorr;
   std::unique_ptr<RPCRecHitCollection> out_all(new RPCRecHitCollection());
   std::vector<RPCRecHit> vec_hits_all;
 
@@ -131,9 +134,13 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     LocalError tmp_err1(-99.,-99.,-99.);//Set dummy number for later
     aRecHit.setError(tmp_err1);
 
-    RPCRecHit allRecHit = *rpcIt;
+    RPCRecHit aNocorrRecHit = *rpcIt;
     LocalError tmp_err2(-99.,-99.,-99.);//Set dummy number for later
-    aRecHit.setError(tmp_err2);
+    aNocorrRecHit.setError(tmp_err2);
+
+    RPCRecHit allRecHit = *rpcIt;
+    LocalError tmp_err3(-99.,-99.,-99.);//Set dummy number for later
+    aRecHit.setError(tmp_err3);
 
     RPCDetId rpc_id = (RPCDetId)(*rpcIt).rpcId();
     if (rpc_id.region() != 0) continue; //skip the barrels
@@ -196,6 +203,11 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
   
         if (!dt_simmatched) continue;
+
+        if (rpcIt->BunchX() == 0){
+          LocalError error_all(allRecHit.localPositionError().xx(), 1.0, aRecHit.localPositionError().yy());
+          allRecHit.setError(error_all);
+        }
 
         const BoundPlane& RPCSurface = rpcGeo->idToDet(rpc_id)->surface();
         GlobalPoint CenterPointRollGlobal = RPCSurface.toGlobal(LocalPoint(0,0,0));
@@ -268,7 +280,8 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
             float stripLenHalf = top_->stripLength() / 2;
             //region == 0: distanceFromEdge = half_stripL + simHitPos.y() (RPCSynchronizer.cc)
             //This suggests readout at -y end!
-            float prop_length = stripLenHalf - lp_extrapol.y();
+            float prop_length = stripLenHalf - lp_extrapol.y(); //This is ref
+            //float prop_length = stripLenHalf + lp_extrapol.y(); //sgnPlus
 
 
             //std::cout << links.begin()->getTimeOfFlight() << " ";
@@ -280,17 +293,43 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
               aRecHit.setCorrTime(rpcIt->time());//Trick! swap time and corrTime
               LocalError error(lp_extrapol.y(), aRecHit.localPositionError().xy(), aRecHit.localPositionError().yy());
               aRecHit.setError(error);
+
+              aNocorrRecHit.setTimeAndError(rpcIt->time(), rpcIt->timeError());
+              aNocorrRecHit.setCorrTime(rpcIt->time());
+              LocalError error2(lp_extrapol.y(), aNocorrRecHit.localPositionError().xy(), aNocorrRecHit.localPositionError().yy());
+              aNocorrRecHit.setError(error2);
+
+              allRecHit.setTimeAndError(rpcIt->time() - stripLenHalf/sspeed + prop_length/sspeed, rpcIt->timeError());
+              allRecHit.setCorrTime(rpcIt->time());
+              LocalError error3(lp_extrapol.y(), allRecHit.localPositionError().xy(), allRecHit.localPositionError().yy());
+              allRecHit.setError(error3);
             }
             //else aRecHit.setCorrTime(-99);
             else continue;
 
-           if(tmp_id != rpc_id){
+            if(tmp_id != rpc_id){
               if(!vec_hits.empty()) out->put(rpc_id, vec_hits.begin(), vec_hits.end());
               tmp_id = rpc_id;
               vec_hits.clear();
               vec_hits.push_back(aRecHit);
+
+              if(!vec_hits_nocorr.empty()) out_nocorr->put(rpc_id, vec_hits_nocorr.begin(), vec_hits_nocorr.end());
+              tmp_id = rpc_id;
+              vec_hits_nocorr.clear();
+              vec_hits_nocorr.push_back(aNocorrRecHit);
             }
-            else vec_hits.push_back(aRecHit);
+            else{
+              vec_hits.push_back(aRecHit);
+              vec_hits_nocorr.push_back(aNocorrRecHit);
+            }
+
+//            if(tmp_id != rpc_id){
+//              if(!vec_hits_nocorr.empty()) out_nocorr->put(rpc_id, vec_hits_nocorr.begin(), vec_hits_nocorr.end());
+//              tmp_id = rpc_id;
+//              vec_hits_nocorr.clear();
+//              vec_hits_nocorr.push_back(aNocorrRecHit);
+//            }
+//            else vec_hits_nocorr.push_back(aNocorrRecHit);
           }
 
         }//Window cut
@@ -302,12 +341,15 @@ DTRPCTimingUpdate::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       if(!vec_hits_all.empty()) out_all->put(rpc_id, vec_hits_all.begin(), vec_hits_all.end());
       tmp_id = rpc_id;
       vec_hits_all.clear();
-      vec_hits_all.push_back(allRecHit);
+      if(allRecHit.localPositionError().xy() > 0){ //positive means passed pre-selection upto bx=0)
+        vec_hits_all.push_back(allRecHit);
+      }
     }
     else vec_hits_all.push_back(allRecHit);
 
   }//Rechit loop
   iEvent.put(std::move(out));
+  iEvent.put(std::move(out_nocorr), "nocorr");
   iEvent.put(std::move(out_all), "all");
 
 }
